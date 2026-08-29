@@ -26,6 +26,13 @@ const getCostExpensesSQL = () => `
   WHERE shipment_id = $1
 `;
 
+// Helper: إجمالي الإفراج الجمركي (ضريبة الوارد + VAT + ضريبة الأرباح) لكل إفراجات الشحنة
+const getClearanceTotalSQL = () => `
+  SELECT COALESCE(SUM(total_clearance), 0) as clearance_total
+  FROM shipment_clearances
+  WHERE shipment_id = $1
+`;
+
 // ═══════════════════════════════════════════════════════════════
 // SHIPMENTS API (محدث بالكامل + Logging + Unlink Invoice)
 // ═══════════════════════════════════════════════════════════════
@@ -338,6 +345,11 @@ router.put('/:id/link-invoice', verifyToken, requireRole('finance', 'admin'), as
     const totalExpensesEgp = parseFloat(expensesResult.rows[0].cost_total) || 0;
     console.log(`[link-invoice] Total expenses: ${totalExpensesEgp}`);
 
+    // 2ب. إجمالي الإفراج الجمركي (ضريبة الوارد + VAT + ضريبة الأرباح)
+    const clearanceResult = await client.query(getClearanceTotalSQL(), [req.params.id]);
+    const totalClearanceEgp = parseFloat(clearanceResult.rows[0].clearance_total) || 0;
+    console.log(`[link-invoice] Total clearance: ${totalClearanceEgp}`);
+
     // 3. بيانات الفاتورة
     const purchaseTotalEgp = parseFloat(purchase.total_amount) || 0;
     const purchaseExchangeRate = parseFloat(exchange_rate) || parseFloat(purchase.exchange_rate) || 50;
@@ -345,8 +357,8 @@ router.put('/:id/link-invoice', verifyToken, requireRole('finance', 'admin'), as
     // 4. قيمة الفاتورة بالدولار = إجمالي الجنيه ÷ سعر الدولار
     const invoiceValueUsd = purchaseTotalEgp / purchaseExchangeRate;
 
-    // 5. إجمالي التكلفة = قيمة الفاتورة بالجنيه + المصاريف
-    const totalCostEgp = purchaseTotalEgp + totalExpensesEgp;
+    // 5. إجمالي التكلفة = قيمة الفاتورة بالجنيه + المصاريف + الإفراج الجمركي
+    const totalCostEgp = purchaseTotalEgp + totalExpensesEgp + totalClearanceEgp;
 
     // 6. المعامل الفعلي = إجمالي التكلفة ÷ الدولار
     let actualExchangeRate = 0;
@@ -378,6 +390,7 @@ router.put('/:id/link-invoice', verifyToken, requireRole('finance', 'admin'), as
         purchase_id, 
         actual_exchange_rate: actualExchangeRate, 
         total_expenses_egp: totalExpensesEgp, 
+        total_clearance_egp: totalClearanceEgp,
         invoice_value_usd: invoiceValueUsd, 
         invoice_value_egp: purchaseTotalEgp, 
         total_cost_egp: totalCostEgp, 
@@ -589,7 +602,12 @@ router.put('/:id/recalculate-cost', verifyToken, requireRole('finance', 'admin')
     // 3. المصاريف للتكلفة (بخصم VAT)
     const expensesResult = await client.query(getCostExpensesSQL(), [req.params.id]);
     const totalExpensesEgp = parseFloat(expensesResult.rows[0].cost_total) || 0;
-    const totalCostEgp = purchaseTotalEgp + totalExpensesEgp;
+
+    // 3ب. إجمالي الإفراج الجمركي (ضريبة الوارد + VAT + ضريبة الأرباح)
+    const clearanceResult = await client.query(getClearanceTotalSQL(), [req.params.id]);
+    const totalClearanceEgp = parseFloat(clearanceResult.rows[0].clearance_total) || 0;
+
+    const totalCostEgp = purchaseTotalEgp + totalExpensesEgp + totalClearanceEgp;
 
     // 4. المعامل الفعلي
     let actualExchangeRate = 0;
@@ -611,6 +629,7 @@ router.put('/:id/recalculate-cost', verifyToken, requireRole('finance', 'admin')
         shipment_id: req.params.id,
         purchase_total_egp: purchaseTotalEgp,
         total_expenses_egp: totalExpensesEgp,
+        total_clearance_egp: totalClearanceEgp,
         total_cost_egp: totalCostEgp,
         invoice_value_usd: invoiceValueUsd,
         actual_exchange_rate: actualExchangeRate
@@ -703,6 +722,10 @@ router.get('/:id/cost-calculation', verifyToken, async (req, res) => {
     const shipment = shipmentResult.rows[0];
     console.log(`[cost-calculation] Shipment: purchase_id=${shipment.purchase_id}, total_cost_egp=${shipment.total_cost_egp}`);
 
+    // 1ب. إجمالي الإفراج الجمركي (لعرضه منفصل عن باقي المصاريف)
+    const clearanceResult = await pool.query(getClearanceTotalSQL(), [req.params.id]);
+    const totalClearanceEgp = parseFloat(clearanceResult.rows[0].clearance_total) || 0;
+
     // 2. جيب أصناف الفاتورة
     const itemsResult = await pool.query(
       `SELECT pi.*, i.name as item_name, i.code as item_code 
@@ -750,7 +773,8 @@ router.get('/:id/cost-calculation', verifyToken, async (req, res) => {
       shipment_number: shipment.shipment_number, 
       invoice_number: shipment.purchase_number,
       purchase_total_egp: purchaseTotalEgp,
-      total_expenses_egp: totalCostEgp - purchaseTotalEgp,
+      total_expenses_egp: totalCostEgp - purchaseTotalEgp - totalClearanceEgp,
+      total_clearance_egp: totalClearanceEgp,
       total_cost_egp: totalCostEgp,
       invoice_value_usd: purchaseTotalEgp / purchaseExchangeRate,
       actual_exchange_rate: actualExchangeRate,

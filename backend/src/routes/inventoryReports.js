@@ -215,8 +215,8 @@ router.get('/shipments-cost', verifyToken, async (req, res) => {
         (SELECT COALESCE(SUM(total_egp), 0) FROM shipment_expenses WHERE shipment_id = sh.id) as total_expenses,
         (SELECT COALESCE(SUM(total_egp), 0) FROM shipment_expenses WHERE shipment_id = sh.id AND expense_type = 'سداد مورد') as bank_payments,
         (SELECT COALESCE(SUM(total_egp), 0) FROM shipment_expenses WHERE shipment_id = sh.id AND expense_type != 'سداد مورد') as other_expenses,
-        (SELECT COALESCE(SUM(customs_duty_total), 0) FROM shipment_clearances WHERE shipment_id = sh.id) as total_customs_duty,
-        (SELECT COALESCE(SUM(vat_amount), 0) FROM shipment_clearances WHERE shipment_id = sh.id) as total_vat,
+        (SELECT COALESCE(SUM(import_tax), 0) FROM shipment_clearances WHERE shipment_id = sh.id) as total_customs_duty,
+        (SELECT COALESCE(SUM(vat_14_amount), 0) FROM shipment_clearances WHERE shipment_id = sh.id) as total_vat,
         (SELECT COALESCE(SUM(profit_tax_amount), 0) FROM shipment_clearances WHERE shipment_id = sh.id) as total_profit_tax
       FROM shipments sh
       LEFT JOIN purchases p ON sh.purchase_id = p.id
