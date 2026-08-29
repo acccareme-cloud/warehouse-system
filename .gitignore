@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Frontend build
+frontend/dist/
+
+# Backend uploads
+backend/uploads/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Archives
+*.zip
+*.rar
+
+# Local database backups
+*.bak
+
+# Batch files
+*.bat

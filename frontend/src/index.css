@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* تفعيل الدارك مود بناءً على كلاس "dark" على <html> بدل إعدادات نظام التشغيل */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+}
