@@ -1,465 +1,287 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { 
-  DollarSign, Plus, Edit2, Trash2, History, TrendingUp, 
-  CheckCircle, XCircle, RefreshCw, Calculator 
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-toastify';
+import ThemeToggle from '../components/ThemeToggle';
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-const Currencies = () => {
+function Currencies() {
+  const navigate = useNavigate();
   const { theme } = useTheme();
-  const { user } = useAuth();
   const isDark = theme === 'dark';
 
   const [currencies, setCurrencies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState({
+    code: '', name: '', symbol: '', exchange_rate: '', is_default: false
+  });
+
   const [showHistory, setShowHistory] = useState(false);
-  const [showConvert, setShowConvert] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState(null);
+  const [historyCurrency, setHistoryCurrency] = useState(null);
   const [historyData, setHistoryData] = useState([]);
 
-  const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    symbol: '',
-    exchange_rate: '',
-    is_default: false
-  });
+  const bgColor = isDark ? '#0f172a' : '#f8fafc';
+  const cardBg = isDark ? '#1e293b' : '#ffffff';
+  const textColor = isDark ? '#f1f5f9' : '#1e293b';
+  const subTextColor = isDark ? '#94a3b8' : '#64748b';
+  const borderColor = isDark ? '#334155' : '#e2e8f0';
 
-  const [convertData, setConvertData] = useState({
-    amount: '',
-    from_currency: 'USD',
-    to_currency: 'EGP'
-  });
-  const [convertResult, setConvertResult] = useState(null);
-
-  // جلب العملات
   const fetchCurrencies = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/api/currencies`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      setCurrencies(response.data);
-    } catch (error) {
-      toast.error('فشل في جلب العملات');
+      const res = await api.get('/currencies');
+      setCurrencies(res.data || []);
+    } catch (err) {
+      setMessage('❌ فشل في جلب العملات: ' + (err.response?.data?.error || 'خطأ غير متوقع'));
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => { fetchCurrencies(); }, []);
+
   useEffect(() => {
-    fetchCurrencies();
-  }, []);
+    if (!message) return;
+    const t = setTimeout(() => setMessage(''), 4000);
+    return () => clearTimeout(t);
+  }, [message]);
 
-  // إضافة / تعديل عملة
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const url = selectedCurrency 
-        ? `${API_URL}/api/currencies/${selectedCurrency.id}`
-        : `${API_URL}/api/currencies`;
-      const method = selectedCurrency ? 'put' : 'post';
-
-      await axios[method](url, formData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-
-      toast.success(selectedCurrency ? 'تم تعديل العملة بنجاح' : 'تم إضافة العملة بنجاح');
-      setShowModal(false);
-      setSelectedCurrency(null);
-      setFormData({ code: '', name: '', symbol: '', exchange_rate: '', is_default: false });
-      fetchCurrencies();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'حدث خطأ');
-    }
+  const openAddModal = () => {
+    setEditingId(null);
+    setFormData({ code: '', name: '', symbol: '', exchange_rate: '', is_default: false });
+    setShowModal(true);
   };
 
-  // حذف عملة
-  const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف العملة؟')) return;
-    try {
-      await axios.delete(`${API_URL}/api/currencies/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      toast.success('تم حذف العملة بنجاح');
-      fetchCurrencies();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'فشل في الحذف');
-    }
-  };
-
-  // جلب تاريخ المعاملات
-  const fetchHistory = async (currencyId) => {
-    try {
-      const response = await axios.get(`${API_URL}/api/currencies/${currencyId}/history`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      setHistoryData(response.data);
-      setShowHistory(true);
-    } catch (error) {
-      toast.error('فشل في جلب التاريخ');
-    }
-  };
-
-  // تحويل عملة
-  const handleConvert = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await axios.post(`${API_URL}/api/currencies/convert`, convertData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      setConvertResult(response.data);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'فشل في التحويل');
-    }
-  };
-
-  // فتح نموذج التعديل
-  const openEdit = (currency) => {
-    setSelectedCurrency(currency);
+  const openEditModal = (c) => {
+    setEditingId(c.id);
     setFormData({
-      code: currency.code,
-      name: currency.name,
-      symbol: currency.symbol,
-      exchange_rate: currency.exchange_rate,
-      is_default: currency.is_default
+      code: c.code, name: c.name, symbol: c.symbol || '',
+      exchange_rate: c.exchange_rate, is_default: c.is_default
     });
     setShowModal(true);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await api.put(`/currencies/${editingId}`, formData);
+        setMessage('✅ تم تعديل العملة بنجاح');
+      } else {
+        await api.post('/currencies', formData);
+        setMessage('✅ تم إضافة العملة بنجاح');
+      }
+      setShowModal(false);
+      fetchCurrencies();
+    } catch (err) {
+      setMessage('❌ ' + (err.response?.data?.error || 'حدث خطأ غير متوقع'));
+    }
+  };
+
+  const handleDelete = async (c) => {
+    if (!window.confirm(`هل أنت متأكد من حذف عملة "${c.name}"؟`)) return;
+    try {
+      await api.delete(`/currencies/${c.id}`);
+      setMessage('✅ تم حذف العملة');
+      fetchCurrencies();
+    } catch (err) {
+      setMessage('❌ ' + (err.response?.data?.error || 'حدث خطأ غير متوقع'));
+    }
+  };
+
+  const openHistory = async (c) => {
+    setHistoryCurrency(c);
+    try {
+      const res = await api.get(`/currencies/${c.id}/history`);
+      setHistoryData(res.data || []);
+      setShowHistory(true);
+    } catch (err) {
+      setMessage('❌ فشل في جلب تاريخ معامل التحويل');
+    }
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '8px', borderRadius: '6px',
+    border: `1px solid ${borderColor}`, background: isDark ? '#0f172a' : '#fff',
+    color: textColor, boxSizing: 'border-box'
+  };
+
+  const thStyle = {
+    padding: '10px', textAlign: 'right', borderBottom: `2px solid ${borderColor}`,
+    color: subTextColor, fontSize: '13px'
+  };
+  const tdStyle = { padding: '10px', borderBottom: `1px solid ${borderColor}`, color: textColor };
 
   return (
-    <div className={`p-6 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-3">
-          <DollarSign className="w-8 h-8 text-blue-500" />
-          <h1 className="text-2xl font-bold">شاشة العملات</h1>
-        </div>
-        <div className="flex gap-3">
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', direction: 'rtl', background: bgColor, minHeight: '100vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <button
-            onClick={() => setShowConvert(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+            onClick={() => navigate('/purchases-module')}
+            style={{ padding: '10px 20px', background: isDark ? '#334155' : '#6c757d', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
           >
-            <Calculator className="w-4 h-4" />
-            آلة التحويل
+            ← رجوع
           </button>
-          <button
-            onClick={() => { setSelectedCurrency(null); setFormData({ code: '', name: '', symbol: '', exchange_rate: '', is_default: false }); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            <Plus className="w-4 h-4" />
-            إضافة عملة
-          </button>
+          <h1 style={{ color: '#0d9488', margin: 0 }}>💱 العملات ومعاملات التحويل</h1>
         </div>
+        <ThemeToggle />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
-          <p className="text-sm opacity-70">عدد العملات</p>
-          <p className="text-2xl font-bold">{currencies.length}</p>
+      {message && (
+        <div style={{
+          padding: '12px 16px', borderRadius: '8px', marginBottom: '16px',
+          background: message.startsWith('✅') ? '#16a34a22' : '#dc262622',
+          color: message.startsWith('✅') ? '#16a34a' : '#dc2626',
+          border: `1px solid ${message.startsWith('✅') ? '#16a34a' : '#dc2626'}`
+        }}>
+          {message}
         </div>
-        <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
-          <p className="text-sm opacity-70">العملة الافتراضية</p>
-          <p className="text-2xl font-bold">
-            {currencies.find(c => c.is_default)?.code || 'EGP'}
-          </p>
-        </div>
-        <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
-          <p className="text-sm opacity-70">سعر الدولار</p>
-          <p className="text-2xl font-bold">
-            {currencies.find(c => c.code === 'USD')?.exchange_rate?.toFixed(2) || '-'} ج.م
-          </p>
-        </div>
-        <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'} shadow`}>
-          <p className="text-sm opacity-70">سعر اليورو</p>
-          <p className="text-2xl font-bold">
-            {currencies.find(c => c.code === 'EUR')?.exchange_rate?.toFixed(2) || '-'} ج.م
-          </p>
-        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+        <button
+          onClick={openAddModal}
+          style={{ padding: '10px 20px', background: '#0d9488', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          + إضافة عملة جديدة
+        </button>
       </div>
 
-      {/* Table */}
-      <div className={`rounded-lg shadow overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-        <table className="w-full">
-          <thead className={isDark ? 'bg-gray-700' : 'bg-gray-100'}>
-            <tr>
-              <th className="px-4 py-3 text-right">الكود</th>
-              <th className="px-4 py-3 text-right">الاسم</th>
-              <th className="px-4 py-3 text-right">الرمز</th>
-              <th className="px-4 py-3 text-right">معامل التحويل</th>
-              <th className="px-4 py-3 text-right">الافتراضية</th>
-              <th className="px-4 py-3 text-right">الحالة</th>
-              <th className="px-4 py-3 text-right">الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currencies.map((currency) => (
-              <tr key={currency.id} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}>
-                <td className="px-4 py-3 font-mono font-bold">{currency.code}</td>
-                <td className="px-4 py-3">{currency.name}</td>
-                <td className="px-4 py-3 text-lg">{currency.symbol}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-500" />
-                    {parseFloat(currency.exchange_rate).toFixed(6)}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {currency.is_default ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-gray-400" />
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    currency.is_active 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {currency.is_active ? 'نشط' : 'معطل'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => fetchHistory(currency.id)}
-                      className="p-1 text-purple-500 hover:bg-purple-100 rounded"
-                      title="تاريخ المعاملات"
-                    >
-                      <History className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => openEdit(currency)}
-                      className="p-1 text-blue-500 hover:bg-blue-100 rounded"
-                      title="تعديل"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    {!currency.is_default && (
-                      <button
-                        onClick={() => handleDelete(currency.id)}
-                        className="p-1 text-red-500 hover:bg-red-100 rounded"
-                        title="حذف"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </td>
+      <div style={{ background: cardBg, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: subTextColor }}>جاري التحميل...</div>
+        ) : currencies.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: subTextColor }}>لا توجد عملات مسجلة</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>الكود</th>
+                <th style={thStyle}>الاسم</th>
+                <th style={thStyle}>الرمز</th>
+                <th style={thStyle}>معامل التحويل (1 = ؟ ج.م)</th>
+                <th style={thStyle}>افتراضية</th>
+                <th style={thStyle}>الإجراءات</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {currencies.map((c) => (
+                <tr key={c.id}>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{c.code}</td>
+                  <td style={tdStyle}>{c.name}</td>
+                  <td style={tdStyle}>{c.symbol || '-'}</td>
+                  <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{parseFloat(c.exchange_rate).toFixed(4)}</td>
+                  <td style={tdStyle}>{c.is_default ? '⭐ نعم' : '-'}</td>
+                  <td style={tdStyle}>
+                    <button onClick={() => openEditModal(c)} style={{ marginLeft: '6px', padding: '6px 10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>تعديل</button>
+                    <button onClick={() => openHistory(c)} style={{ marginLeft: '6px', padding: '6px 10px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>التاريخ</button>
+                    {!c.is_default && (
+                      <button onClick={() => handleDelete(c)} style={{ padding: '6px 10px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>حذف</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Modal: Add/Edit Currency */}
+      {/* Modal إضافة / تعديل */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`w-full max-w-md p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-            <h2 className="text-xl font-bold mb-4">
-              {selectedCurrency ? 'تعديل عملة' : 'إضافة عملة جديدة'}
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-1">كود العملة</label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                    className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    placeholder="مثال: USD"
-                    required
-                    disabled={!!selectedCurrency}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">اسم العملة</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    placeholder="مثال: دولار أمريكي"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">الرمز</label>
-                  <input
-                    type="text"
-                    value={formData.symbol}
-                    onChange={(e) => setFormData({...formData, symbol: e.target.value})}
-                    className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    placeholder="مثال: $"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">معامل التحويل (مقابل الجنيه)</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={formData.exchange_rate}
-                    onChange={(e) => setFormData({...formData, exchange_rate: e.target.value})}
-                    className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    placeholder="مثال: 50.000000"
-                    required
-                  />
-                  <p className="text-xs opacity-70 mt-1">كم جنيه مصري = 1 وحدة من العملة</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_default}
-                    onChange={(e) => setFormData({...formData, is_default: e.target.checked})}
-                    className="w-4 h-4"
-                  />
-                  <label className="text-sm">العملة الافتراضية</label>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded border hover:bg-gray-100"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  {selectedCurrency ? 'حفظ التعديلات' : 'إضافة'}
-                </button>
-              </div>
-            </form>
-          </div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <form onSubmit={handleSubmit} style={{ background: cardBg, padding: '24px', borderRadius: '12px', width: '400px', maxWidth: '90%' }}>
+            <h3 style={{ color: textColor, marginTop: 0 }}>{editingId ? 'تعديل عملة' : 'إضافة عملة جديدة'}</h3>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: subTextColor, display: 'block', marginBottom: '4px' }}>كود العملة (مثال: USD)</label>
+              <input
+                type="text" required disabled={!!editingId} value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: subTextColor, display: 'block', marginBottom: '4px' }}>اسم العملة</label>
+              <input
+                type="text" required value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: subTextColor, display: 'block', marginBottom: '4px' }}>الرمز (مثال: $)</label>
+              <input
+                type="text" value={formData.symbol}
+                onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ color: subTextColor, display: 'block', marginBottom: '4px' }}>معامل التحويل (1 وحدة = كام جنيه؟)</label>
+              <input
+                type="number" step="0.0001" required value={formData.exchange_rate}
+                onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <input
+                type="checkbox" id="is_default" checked={formData.is_default}
+                onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+              />
+              <label htmlFor="is_default" style={{ color: textColor }}>عملة افتراضية</label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowModal(false)} style={{ padding: '10px 18px', background: isDark ? '#334155' : '#e2e8f0', color: textColor, border: 'none', borderRadius: '8px', cursor: 'pointer' }}>إلغاء</button>
+              <button type="submit" style={{ padding: '10px 18px', background: '#0d9488', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{editingId ? 'حفظ التعديل' : 'إضافة'}</button>
+            </div>
+          </form>
         </div>
       )}
 
-      {/* Modal: Exchange Rate History */}
+      {/* Modal التاريخ */}
       {showHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`w-full max-w-2xl p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">تاريخ معاملات التحويل</h2>
-              <button onClick={() => setShowHistory(false)} className="text-gray-500 hover:text-gray-700">
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-            <table className="w-full">
-              <thead className={isDark ? 'bg-gray-700' : 'bg-gray-100'}>
-                <tr>
-                  <th className="px-4 py-2 text-right">التاريخ</th>
-                  <th className="px-4 py-2 text-right">المعامل</th>
-                  <th className="px-4 py-2 text-right">ملاحظات</th>
-                  <th className="px-4 py-2 text-right">بواسطة</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyData.map((h) => (
-                  <tr key={h.id} className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <td className="px-4 py-2">{new Date(h.effective_date).toLocaleDateString('ar-EG')}</td>
-                    <td className="px-4 py-2 font-mono">{parseFloat(h.exchange_rate).toFixed(6)}</td>
-                    <td className="px-4 py-2">{h.notes}</td>
-                    <td className="px-4 py-2">{h.created_by_name}</td>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: cardBg, padding: '24px', borderRadius: '12px', width: '500px', maxWidth: '90%', maxHeight: '80vh', overflow: 'auto' }}>
+            <h3 style={{ color: textColor, marginTop: 0 }}>تاريخ معامل التحويل - {historyCurrency?.name}</h3>
+            {historyData.length === 0 ? (
+              <p style={{ color: subTextColor }}>لا يوجد سجل تاريخي بعد.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>التاريخ</th>
+                    <th style={thStyle}>المعامل</th>
+                    <th style={thStyle}>ملاحظات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Currency Converter */}
-      {showConvert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`w-full max-w-md p-6 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">آلة تحويل العملات</h2>
-              <button onClick={() => setShowConvert(false)} className="text-gray-500 hover:text-gray-700">
-                <XCircle className="w-6 h-6" />
-              </button>
+                </thead>
+                <tbody>
+                  {historyData.map((h) => (
+                    <tr key={h.id}>
+                      <td style={tdStyle}>{new Date(h.effective_date).toLocaleDateString('ar-EG')}</td>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{parseFloat(h.exchange_rate).toFixed(4)}</td>
+                      <td style={tdStyle}>{h.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button onClick={() => setShowHistory(false)} style={{ padding: '10px 18px', background: isDark ? '#334155' : '#e2e8f0', color: textColor, border: 'none', borderRadius: '8px', cursor: 'pointer' }}>إغلاق</button>
             </div>
-            <form onSubmit={handleConvert}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-1">المبلغ</label>
-                  <input
-                    type="number"
-                    value={convertData.amount}
-                    onChange={(e) => setConvertData({...convertData, amount: e.target.value})}
-                    className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm mb-1">من</label>
-                    <select
-                      value={convertData.from_currency}
-                      onChange={(e) => setConvertData({...convertData, from_currency: e.target.value})}
-                      className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    >
-                      {currencies.map(c => (
-                        <option key={c.id} value={c.code}>{c.code} - {c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-1">إلى</label>
-                    <select
-                      value={convertData.to_currency}
-                      onChange={(e) => setConvertData({...convertData, to_currency: e.target.value})}
-                      className={`w-full px-3 py-2 rounded border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    >
-                      {currencies.map(c => (
-                        <option key={c.id} value={c.code}>{c.code} - {c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-                >
-                  تحويل
-                </button>
-                {convertResult && (
-                  <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                    <p className="text-center text-lg">
-                      <span className="font-bold">{convertResult.amount}</span> {convertResult.from_currency}
-                      <span className="mx-2">=</span>
-                      <span className="font-bold text-green-500">{convertResult.converted_amount.toLocaleString()}</span> {convertResult.to_currency}
-                    </p>
-                    <p className="text-center text-sm opacity-70 mt-2">
-                      المعامل: {convertResult.exchange_rate.toFixed(6)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </form>
           </div>
         </div>
       )}
     </div>
   );
-};
+}
 
 export default Currencies;

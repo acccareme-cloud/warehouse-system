@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 
 // Purchases Module
 import PurchasesModule from './pages/PurchasesModule';
+import Currencies from './pages/Currencies';
 import PurchaseRequests from './pages/PurchaseRequests';
 import PurchaseOrders from './pages/PurchaseOrders';
 import Purchases from './pages/Purchases';
@@ -81,6 +82,7 @@ function App() {
 
           {/* Purchases Module */}
           <Route path="/purchases-module" element={<PurchasesModule />} />
+          <Route path="/currencies" element={<Currencies />} />
           <Route path="/purchase-requests" element={<PurchaseRequests />} />
           <Route path="/purchase-orders" element={<PurchaseOrders />} />
           <Route path="/purchases" element={<Purchases />} />

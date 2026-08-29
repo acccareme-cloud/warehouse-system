@@ -6,6 +6,7 @@ function PurchaseRequests() {
   const [warehouses, setWarehouses] = useState([]);
   const [requests, setRequests] = useState([]);
   const [userRole, setUserRole] = useState('');
+  const [currencies, setCurrencies] = useState([]);
 
   // بيانات الطلب الرئيسية
   const [formData, setFormData] = useState({
@@ -42,7 +43,17 @@ function PurchaseRequests() {
     fetchWarehouses();
     fetchRequests();
     fetchNextNumber();
+    fetchCurrencies();
   }, []);
+
+  const fetchCurrencies = async () => {
+    try {
+      const response = await api.get('/currencies');
+      setCurrencies(response.data || []);
+    } catch (err) {
+      console.error('Error fetching currencies:', err);
+    }
+  };
 
   const fetchNextNumber = async () => {
     try {
@@ -371,12 +382,25 @@ function PurchaseRequests() {
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>العملة:</label>
               <select 
                 value={formData.currency} 
-                onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                onChange={(e) => {
+                  const selected = currencies.find(c => c.code === e.target.value);
+                  const newRate = selected ? parseFloat(selected.exchange_rate) : formData.exchange_rate;
+                  setFormData({...formData, currency: e.target.value, exchange_rate: newRate});
+                  updateItem(0, 'exchange_rate', newRate);
+                }}
                 style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
               >
-                <option value="USD">💵 دولار أمريكي (USD)</option>
-                <option value="EGP">🇪🇬 جنيه مصري (EGP)</option>
-                <option value="EUR">💶 يورو (EUR)</option>
+                {currencies.length === 0 ? (
+                  <>
+                    <option value="USD">💵 دولار أمريكي (USD)</option>
+                    <option value="EGP">🇪🇬 جنيه مصري (EGP)</option>
+                    <option value="EUR">💶 يورو (EUR)</option>
+                  </>
+                ) : (
+                  currencies.map(c => (
+                    <option key={c.id} value={c.code}>{c.symbol ? `${c.symbol} ` : ''}{c.name} ({c.code})</option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -392,6 +416,7 @@ function PurchaseRequests() {
                 }}
                 style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }} 
               />
+              <small style={{ color: '#888' }}>معبّأ تلقائيًا من شاشة العملات، وتقدر تعدّله يدويًا لو احتجت</small>
             </div>
           </div>
 

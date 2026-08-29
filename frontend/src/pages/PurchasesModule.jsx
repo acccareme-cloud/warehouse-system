@@ -19,6 +19,7 @@ function PurchasesModule() {
     { title: '🚢 الشحنات', desc: 'إدارة شحنات الاستيراد والمصاريف', color: '#0d9488', path: '/shipments' },
     { title: '🏭 الموردين', desc: 'تكويد وإدارة الموردين', color: '#dc2626', path: '/suppliers' },
     { title: '📊 تقارير الموردين', desc: 'كشف حساب وأرصدة الموردين', color: '#2563eb', path: '/supplier-reports' },
+    { title: '💱 العملات', desc: 'إدارة العملات ومعامل التحويل', color: '#0d9488', path: '/currencies' },
   ];
 
   return (
