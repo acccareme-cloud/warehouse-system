@@ -3,309 +3,642 @@ const pool = require('../config/db');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
-// ═══════════════════════════════════════════════════════════════
-// PURCHASE ORDERS API (محدث - مع exchange_rate)
-// ═══════════════════════════════════════════════════════════════
-
-// GET /purchase-orders/next-number
+// Generate next PO number
 router.get('/next-number', verifyToken, async (req, res) => {
   try {
-    const year = req.query.year || new Date().getFullYear();
-    const gapResult = await pool.query(
-      `SELECT t1.order_number + 1 as next_num
-       FROM purchase_orders t1
-       WHERE t1.order_year = $1
-         AND t1.status != 'cancelled'
-         AND NOT EXISTS (
-           SELECT 1 FROM purchase_orders t2 
-           WHERE t2.order_number = t1.order_number + 1 
-           AND t2.order_year = $1
-           AND t2.status != 'cancelled'
-         )
-       ORDER BY t1.order_number
-       LIMIT 1`,
-      [year]
+    const { type } = req.query;
+    const prefix = type === 'import' ? 'PO-IMP' : 'PO-LOC';
+
+    const result = await pool.query(
+      `SELECT order_number FROM purchase_orders WHERE order_number LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`${prefix}-%`]
     );
-    if (gapResult.rows.length > 0 && gapResult.rows[0].next_num > 0) {
-      return res.json({ nextNumber: gapResult.rows[0].next_num });
+
+    let nextNumber = `${prefix}-0001`;
+    if (result.rows.length > 0) {
+      const last = result.rows[0].order_number;
+      const match = last.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0]) + 1;
+        nextNumber = `${prefix}-${String(num).padStart(4, '0')}`;
+      }
     }
-    const maxResult = await pool.query(
-      `SELECT COALESCE(MAX(order_number), 0) + 1 as next_num 
-       FROM purchase_orders 
-       WHERE order_year = $1 AND status != 'cancelled'`,
-      [year]
-    );
-    res.json({ nextNumber: maxResult.rows[0].next_num });
+    res.json({ nextNumber });
   } catch (err) {
-    console.error('[GET /next-number] Error:', err);
+    console.error('Error in next-number:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// GET /purchase-orders
-router.get('/', verifyToken, async (req, res) => {
-  const { year, status, supplier_id, purchase_type } = req.query;
-  try {
-    let query = `
-      SELECT po.*, s.name as supplier_name, s.supplier_code, c.name as currency_name, u.full_name as created_by_name
-      FROM purchase_orders po
-      LEFT JOIN suppliers s ON po.supplier_id = s.id
-      LEFT JOIN currencies c ON po.currency_id = c.id
-      LEFT JOIN users u ON po.created_by = u.id
-      WHERE po.status != 'cancelled'
-    `;
-    const params = [];
-    if (year) { params.push(year); query += ` AND po.order_year = $${params.length}`; }
-    if (status) { params.push(status); query += ` AND po.status = $${params.length}`; }
-    if (supplier_id) { params.push(supplier_id); query += ` AND po.supplier_id = $${params.length}`; }
-    if (purchase_type) { params.push(purchase_type); query += ` AND po.purchase_type = $${params.length}`; }
-    query += ` ORDER BY po.order_year DESC, po.order_number DESC`;
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('[GET /purchase-orders] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
+// Create purchase order (multi-item + currencies)
+router.post('/', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const {
+    order_type,
+    order_number,
+    supplier,
+    warehouse_id,
+    currency,
+    exchange_rate,
+    notes,
+    items,
+    total_usd,
+    total_egp,
+    purchase_request_id
+  } = req.body;
 
-// GET /purchase-orders/:id
-router.get('/:id', verifyToken, async (req, res) => {
-  try {
-    const orderResult = await pool.query(
-      `SELECT po.*, s.name as supplier_name, s.supplier_code, c.name as currency_name, c.code as currency_code, c.exchange_rate as currency_exchange_rate, u.full_name as created_by_name
-      FROM purchase_orders po
-      LEFT JOIN suppliers s ON po.supplier_id = s.id
-      LEFT JOIN currencies c ON po.currency_id = c.id
-      LEFT JOIN users u ON po.created_by = u.id
-      WHERE po.id = $1`, [req.params.id]
-    );
-    if (orderResult.rows.length === 0) return res.status(404).json({ message: 'أمر الشراء غير موجود' });
-    const order = orderResult.rows[0];
-
-    const itemsResult = await pool.query(
-      `SELECT poi.*, i.name as item_name, i.code as item_code, i.unit_of_measure, i.is_vat_exempt, i.is_profit_tax_exempt
-      FROM purchase_order_items poi
-      LEFT JOIN items i ON poi.item_id = i.id
-      WHERE poi.purchase_order_id = $1`, [req.params.id]
-    );
-
-    res.json({ ...order, items: itemsResult.rows });
-  } catch (err) {
-    console.error('[GET /purchase-orders/:id] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /purchase-orders
-router.post('/', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
-  const { order_number, order_year, supplier_id, order_date, delivery_date, purchase_type, currency_id, exchange_rate, notes, items } = req.body;
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ message: 'يجب إضافة بنود لأمر الشراء' });
-  }
   const client = await pool.connect();
+
   try {
     await client.query('BEGIN');
 
-    // جيب معامل التحويل من العملة لو مش مدخل
-    let finalExchangeRate = exchange_rate;
-    if (!finalExchangeRate && currency_id) {
-      const currencyResult = await client.query(`SELECT exchange_rate FROM currencies WHERE id = $1`, [currency_id]);
-      if (currencyResult.rows.length > 0) finalExchangeRate = currencyResult.rows[0].exchange_rate;
-    }
-    if (!finalExchangeRate) finalExchangeRate = 1;
+    // نحسب الإجمالي لو مش موجود
+    let finalTotalUsd = parseFloat(total_usd) || 0;
+    let finalTotalEgp = parseFloat(total_egp) || 0;
 
-    const orderResult = await client.query(
-      `INSERT INTO purchase_orders (order_number, order_year, supplier_id, order_date, delivery_date, purchase_type, status, currency_id, exchange_rate, notes, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, 'draft', $7, $8, $9, $10) RETURNING *`,
-      [order_number, order_year || new Date().getFullYear(), supplier_id || null, order_date || new Date(), delivery_date || null, purchase_type || 'local', currency_id || null, finalExchangeRate, notes || null, req.user.id]
-    );
-    const orderId = orderResult.rows[0].id;
-
-    let totalAmount = 0;
-    for (const item of items) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-      totalAmount += itemTotal;
-      await client.query(
-        `INSERT INTO purchase_order_items (purchase_order_id, item_id, quantity, unit_price, total_price, unit_of_measure, notes, is_vat_exempt, is_profit_tax_exempt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [orderId, item.item_id, item.quantity, item.unit_price || 0, itemTotal, item.unit_of_measure || null, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false]
-      );
+    if ((!finalTotalUsd || !finalTotalEgp) && items && items.length > 0) {
+      items.forEach(item => {
+        const qty = parseFloat(item.quantity) || 0;
+        finalTotalUsd += qty * (parseFloat(item.unit_price_usd) || 0);
+        finalTotalEgp += qty * (parseFloat(item.unit_price_egp) || 0);
+      });
     }
 
-    await client.query(`UPDATE purchase_orders SET total_amount = $1 WHERE id = $2`, [totalAmount, orderId]);
-    await client.query('COMMIT');
-    res.status(201).json({ message: 'تم إنشاء أمر الشراء بنجاح', data: { ...orderResult.rows[0], total_amount: totalAmount } });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[POST /purchase-orders] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// POST /purchase-orders/from-pr - إنشاء من طلب شراء معتمد
-router.post('/from-pr', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
-  const { purchase_request_id, order_number, order_year, supplier_id, order_date, delivery_date, purchase_type, currency_id, exchange_rate, notes } = req.body;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // جيب بيانات طلب الشراء
-    const prResult = await client.query(
-      `SELECT * FROM purchase_requests WHERE id = $1 AND status = 'approved'`,
-      [purchase_request_id]
+    // 1. نحفظ الطلب الرئيسي (مع total_amount و net_amount)
+    const result = await client.query(
+      `INSERT INTO purchase_orders (
+        order_type, order_number, supplier, warehouse_id,
+        currency, exchange_rate, total_usd, total_egp,
+        total_amount, net_amount, tax_14_percent,
+        notes, status, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13)
+      RETURNING *`,
+      [
+        order_type,
+        order_number,
+        supplier,
+        warehouse_id || null,
+        currency || 'USD',
+        parseFloat(exchange_rate) || 1,
+        finalTotalUsd,
+        finalTotalEgp,
+        finalTotalEgp, // total_amount = total_egp
+        finalTotalEgp, // net_amount = total_egp
+        finalTotalEgp * 0.14, // tax_14_percent
+        notes || '',
+        req.user.id
+      ]
     );
-    if (prResult.rows.length === 0) throw new Error('طلب الشراء غير موجود أو غير معتمد');
-    const pr = prResult.rows[0];
+    const orderId = result.rows[0].id;
 
-    // جيب بنود طلب الشراء
-    const prItemsResult = await client.query(
-      `SELECT * FROM purchase_request_items WHERE purchase_request_id = $1`,
-      [purchase_request_id]
-    );
-    if (prItemsResult.rows.length === 0) throw new Error('طلب الشراء لا يحتوي على بنود');
-
-    // جيب معامل التحويل
-    let finalExchangeRate = exchange_rate;
-    if (!finalExchangeRate && (currency_id || pr.currency_id)) {
-      const currId = currency_id || pr.currency_id;
-      const currencyResult = await client.query(`SELECT exchange_rate FROM currencies WHERE id = $1`, [currId]);
-      if (currencyResult.rows.length > 0) finalExchangeRate = currencyResult.rows[0].exchange_rate;
-    }
-    if (!finalExchangeRate) finalExchangeRate = pr.exchange_rate || 1;
-
-    // إنشاء أمر الشراء
-    const orderResult = await client.query(
-      `INSERT INTO purchase_orders (order_number, order_year, supplier_id, order_date, delivery_date, purchase_type, status, currency_id, exchange_rate, notes, purchase_request_id, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, 'draft', $7, $8, $9, $10, $11) RETURNING *`,
-      [order_number, order_year || new Date().getFullYear(), supplier_id || pr.supplier_id, order_date || new Date(), delivery_date || null, purchase_type || 'local', currency_id || pr.currency_id, finalExchangeRate, notes || pr.notes, purchase_request_id, req.user.id]
-    );
-    const orderId = orderResult.rows[0].id;
-
-    // نقل البنود
-    let totalAmount = 0;
-    for (const item of prItemsResult.rows) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.estimated_price) || 0);
-      totalAmount += itemTotal;
-      await client.query(
-        `INSERT INTO purchase_order_items (purchase_order_id, item_id, quantity, unit_price, total_price, unit_of_measure, notes, is_vat_exempt, is_profit_tax_exempt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [orderId, item.item_id, item.quantity, item.estimated_price || 0, itemTotal, item.unit_of_measure || null, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false]
-      );
-    }
-
-    await client.query(`UPDATE purchase_orders SET total_amount = $1 WHERE id = $2`, [totalAmount, orderId]);
-    await client.query('COMMIT');
-    res.status(201).json({ message: 'تم إنشاء أمر الشراء من طلب الشراء بنجاح', data: { ...orderResult.rows[0], total_amount: totalAmount } });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[POST /purchase-orders/from-pr] Error:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// PUT /purchase-orders/:id
-router.put('/:id', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
-  const { supplier_id, order_date, delivery_date, purchase_type, currency_id, exchange_rate, notes, items } = req.body;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const orderResult = await client.query(`SELECT status FROM purchase_orders WHERE id = $1`, [req.params.id]);
-    if (orderResult.rows.length === 0) throw new Error('أمر الشراء غير موجود');
-    if (orderResult.rows[0].status === 'posted') throw new Error('لا يمكن تعديل أمر مرحل');
-
-    let finalExchangeRate = exchange_rate;
-    if (!finalExchangeRate && currency_id) {
-      const currencyResult = await client.query(`SELECT exchange_rate FROM currencies WHERE id = $1`, [currency_id]);
-      if (currencyResult.rows.length > 0) finalExchangeRate = currencyResult.rows[0].exchange_rate;
-    }
-
-    await client.query(
-      `UPDATE purchase_orders SET supplier_id = $1, order_date = $2, delivery_date = $3, purchase_type = $4, currency_id = $5, exchange_rate = $6, notes = $7, updated_at = NOW() WHERE id = $8`,
-      [supplier_id || null, order_date || new Date(), delivery_date || null, purchase_type || 'local', currency_id || null, finalExchangeRate || 1, notes || null, req.params.id]
-    );
-
-    if (items && Array.isArray(items)) {
-      await client.query(`DELETE FROM purchase_order_items WHERE purchase_order_id = $1`, [req.params.id]);
-      let totalAmount = 0;
+    // 2. نحفظ الأصناف في الجدول الفرعي
+    if (items && items.length > 0) {
       for (const item of items) {
-        const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-        totalAmount += itemTotal;
+        if (!item.item_id) continue;
+
+        const qty = parseFloat(item.quantity) || 0;
+        const unitPriceUsd = parseFloat(item.unit_price_usd) || 0;
+        const unitPriceEgp = parseFloat(item.unit_price_egp) || 0;
+        const itemTotalUsd = qty * unitPriceUsd;
+        const itemTotalEgp = qty * unitPriceEgp;
+
         await client.query(
-          `INSERT INTO purchase_order_items (purchase_order_id, item_id, quantity, unit_price, total_price, unit_of_measure, notes, is_vat_exempt, is_profit_tax_exempt)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [req.params.id, item.item_id, item.quantity, item.unit_price || 0, itemTotal, item.unit_of_measure || null, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false]
+          `INSERT INTO purchase_order_items (
+            purchase_order_id, item_id, quantity, unit,
+            unit_price_usd, unit_price_egp, total_usd, total_egp, notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            orderId,
+            item.item_id,
+            qty,
+            item.unit || 'عدد',
+            unitPriceUsd,
+            unitPriceEgp,
+            itemTotalUsd,
+            itemTotalEgp,
+            item.notes || ''
+          ]
         );
       }
-      await client.query(`UPDATE purchase_orders SET total_amount = $1 WHERE id = $2`, [totalAmount, req.params.id]);
+    }
+
+    // 3. لو فيه purchase_request_id، نحدث status لـ completed
+    if (purchase_request_id) {
+      await client.query(
+        `UPDATE purchase_requests SET status = 'completed' WHERE id = $1`,
+        [purchase_request_id]
+      );
     }
 
     await client.query('COMMIT');
-    res.json({ message: 'تم تحديث أمر الشراء' });
+
+    res.status(201).json({
+      message: 'تم إنشاء امر الشراء بنجاح',
+      data: result.rows[0]
+    });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[PUT /purchase-orders/:id] Error:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
+    console.error('Error creating PO:', err);
+
+    if (err.code === '23505') {
+      return res.status(400).json({ message: 'رقم الأمر موجود مسبقاً' });
+    }
+
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
-// PUT /purchase-orders/:id/approve
-router.put('/:id/approve', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
+// DUPLICATE — تكرار أمر شراء
+router.post('/:id/duplicate', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
   try {
-    const result = await pool.query(
-      `UPDATE purchase_orders SET status = 'approved', approved_by = $1, approved_at = NOW(), updated_at = NOW() WHERE id = $2 AND status = 'draft' RETURNING *`,
-      [req.user.id, req.params.id]
+    await client.query('BEGIN');
+
+    const original = await client.query('SELECT * FROM purchase_orders WHERE id = $1', [id]);
+    if (original.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'امر الشراء غير موجود' });
+    }
+
+    const p = original.rows[0];
+
+    // توليد رقم جديد
+    const prefix = p.order_type === 'import' ? 'PO-IMP' : 'PO-LOC';
+    const lastResult = await client.query(
+      `SELECT order_number FROM purchase_orders WHERE order_number LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`${prefix}-%`]
     );
-    if (result.rows.length === 0) return res.status(400).json({ message: 'لا يمكن اعتماد أمر الشراء' });
-    res.json({ message: 'تم اعتماد أمر الشراء', data: result.rows[0] });
+    let nextNumber = `${prefix}-0001`;
+    if (lastResult.rows.length > 0) {
+      const last = lastResult.rows[0].order_number;
+      const match = last.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0]) + 1;
+        nextNumber = `${prefix}-${String(num).padStart(4, '0')}`;
+      }
+    }
+
+    // إنشاء أمر جديد
+    const result = await client.query(
+      `INSERT INTO purchase_orders (
+        order_type, order_number, supplier, warehouse_id,
+        currency, exchange_rate, total_usd, total_egp,
+        total_amount, net_amount, tax_14_percent,
+        notes, status, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13)
+      RETURNING *`,
+      [
+        p.order_type,
+        nextNumber,
+        p.supplier,
+        p.warehouse_id,
+        p.currency || 'USD',
+        parseFloat(p.exchange_rate) || 1,
+        parseFloat(p.total_usd) || 0,
+        parseFloat(p.total_egp) || 0,
+        parseFloat(p.total_egp) || 0,
+        parseFloat(p.total_egp) || 0,
+        (parseFloat(p.total_egp) || 0) * 0.14,
+        `نسخة من ${p.order_number}`,
+        req.user.id
+      ]
+    );
+
+    const newId = result.rows[0].id;
+
+    // نسخ الأصناف
+    const itemsResult = await client.query(
+      'SELECT * FROM purchase_order_items WHERE purchase_order_id = $1',
+      [id]
+    );
+    for (const item of itemsResult.rows) {
+      await client.query(
+        `INSERT INTO purchase_order_items (
+          purchase_order_id, item_id, quantity, unit,
+          unit_price_usd, unit_price_egp, total_usd, total_egp, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          newId,
+          item.item_id,
+          item.quantity,
+          item.unit || 'عدد',
+          item.unit_price_usd,
+          item.unit_price_egp,
+          item.total_usd,
+          item.total_egp,
+          item.notes
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: `تم تكرار امر الشراء بنجاح برقم ${nextNumber}`,
+      data: result.rows[0]
+    });
+
   } catch (err) {
-    console.error('[PUT /purchase-orders/:id/approve] Error:', err);
+    await client.query('ROLLBACK');
+    console.error('Duplicate error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Update purchase order
+router.put('/:id', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const { id } = req.params;
+  const {
+    order_number,
+    supplier,
+    warehouse_id,
+    currency,
+    exchange_rate,
+    notes,
+    items,
+    total_usd,
+    total_egp
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // نتأكد إن الأمر موجود وفي حالة draft
+    const checkResult = await client.query(
+      `SELECT status FROM purchase_orders WHERE id = $1`,
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'امر الشراء غير موجود' });
+    }
+
+    if (checkResult.rows[0].status !== 'draft') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يمكن تعديل امر الشراء المعتمد' });
+    }
+
+    // 1. نحدث الطلب الرئيسي
+    const result = await client.query(
+      `UPDATE purchase_orders SET
+        order_number = $1, supplier = $2, warehouse_id = $3,
+        currency = $4, exchange_rate = $5, total_usd = $6, total_egp = $7,
+        notes = $8, updated_at = NOW()
+       WHERE id = $9
+       RETURNING *`,
+      [
+        order_number,
+        supplier,
+        warehouse_id || null,
+        currency || 'USD',
+        parseFloat(exchange_rate) || 1,
+        parseFloat(total_usd) || 0,
+        parseFloat(total_egp) || 0,
+        notes || '',
+        id
+      ]
+    );
+
+    // 2. نحذف الأصناف القديمة
+    await client.query(
+      'DELETE FROM purchase_order_items WHERE purchase_order_id = $1',
+      [id]
+    );
+
+    // 3. نضيف الأصناف الجديدة
+    if (items && items.length > 0) {
+      for (const item of items) {
+        if (!item.item_id) continue;
+
+        const qty = parseFloat(item.quantity) || 0;
+        const unitPriceUsd = parseFloat(item.unit_price_usd) || 0;
+        const unitPriceEgp = parseFloat(item.unit_price_egp) || 0;
+        const itemTotalUsd = qty * unitPriceUsd;
+        const itemTotalEgp = qty * unitPriceEgp;
+
+        await client.query(
+          `INSERT INTO purchase_order_items (
+            purchase_order_id, item_id, quantity, unit,
+            unit_price_usd, unit_price_egp, total_usd, total_egp, notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            id,
+            item.item_id,
+            qty,
+            item.unit || 'عدد',
+            unitPriceUsd,
+            unitPriceEgp,
+            itemTotalUsd,
+            itemTotalEgp,
+            item.notes || ''
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'تم تعديل امر الشراء بنجاح',
+      data: result.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error updating PO:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Delete purchase order
+router.delete('/:id', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const checkResult = await client.query(
+      `SELECT status, purchase_request_id FROM purchase_orders WHERE id = $1`,
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'امر الشراء غير موجود' });
+    }
+
+    if (checkResult.rows[0].status !== 'draft') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يمكن حذف امر الشراء المعتمد' });
+    }
+
+    // Delete items first (foreign key)
+    await client.query('DELETE FROM purchase_order_items WHERE purchase_order_id = $1', [id]);
+
+    await client.query('DELETE FROM purchase_orders WHERE id = $1', [id]);
+
+    // If linked to purchase request, revert request back to approved
+    const purchaseRequestId = checkResult.rows[0].purchase_request_id;
+    if (purchaseRequestId) {
+      await client.query(
+        `UPDATE purchase_requests SET status = 'approved', updated_at = NOW() WHERE id = $1`,
+        [purchaseRequestId]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'تم حذف امر الشراء بنجاح' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting PO:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all purchase orders (with items)
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const ordersResult = await pool.query(
+      `SELECT po.*, w.name as warehouse_name,
+        u.full_name as created_by_name, au.full_name as approved_by_name
+       FROM purchase_orders po
+       LEFT JOIN warehouses w ON po.warehouse_id = w.id
+       LEFT JOIN users u ON po.created_by = u.id
+       LEFT JOIN users au ON po.approved_by = au.id
+       ORDER BY po.created_at DESC`
+    );
+
+    const itemsResult = await pool.query(
+      `SELECT poi.*, i.name as item_name, i.code as item_code
+       FROM purchase_order_items poi
+       LEFT JOIN items i ON poi.item_id = i.id
+       ORDER BY poi.id`
+    );
+
+    const orders = ordersResult.rows.map(o => ({
+      ...o,
+      items: itemsResult.rows.filter(i => i.purchase_order_id === o.id)
+    }));
+
+    res.json(orders);
+  } catch (err) {
+    console.error('Error fetching POs:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// PUT /purchase-orders/:id/cancel
-router.put('/:id/cancel', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
+// Get approved orders for invoices (with items)
+router.get('/approved-orders', verifyToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      `UPDATE purchase_orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status != 'posted' RETURNING *`,
-      [req.params.id]
+    const ordersResult = await pool.query(
+      `SELECT po.*, w.name as warehouse_name
+       FROM purchase_orders po
+       LEFT JOIN warehouses w ON po.warehouse_id = w.id
+       WHERE po.status = 'approved'
+       AND NOT EXISTS (
+         SELECT 1 FROM purchases p 
+         WHERE p.purchase_order_id = po.id
+       )
+       ORDER BY po.created_at DESC`
     );
-    if (result.rows.length === 0) return res.status(400).json({ message: 'لا يمكن إلغاء أمر الشراء' });
-    res.json({ message: 'تم إلغاء أمر الشراء', data: result.rows[0] });
+
+    const itemsResult = await pool.query(
+      `SELECT poi.*, i.name as item_name, i.code as item_code
+       FROM purchase_order_items poi
+       LEFT JOIN items i ON poi.item_id = i.id
+       WHERE poi.purchase_order_id = ANY($1::int[])`,
+      [ordersResult.rows.map(o => o.id)]
+    );
+
+    const orders = ordersResult.rows.map(o => ({
+      ...o,
+      items: itemsResult.rows.filter(i => i.purchase_order_id === o.id)
+    }));
+
+    res.json(orders);
   } catch (err) {
-    console.error('[PUT /purchase-orders/:id/cancel] Error:', err);
+    console.error('Error fetching approved orders:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// DELETE /purchase-orders/:id
-router.delete('/:id', verifyToken, requireRole('admin'), async (req, res) => {
+// Get approved requests for PO creation (with items) - أي طلب مش completed
+router.get('/approved-requests', verifyToken, async (req, res) => {
   try {
-    const checkResult = await pool.query(`SELECT status FROM purchase_orders WHERE id = $1`, [req.params.id]);
-    if (checkResult.rows.length === 0) return res.status(404).json({ message: 'أمر الشراء غير موجود' });
-    if (checkResult.rows[0].status === 'posted') return res.status(400).json({ message: 'لا يمكن حذف أمر مرحل' });
-    await pool.query(`DELETE FROM purchase_orders WHERE id = $1`, [req.params.id]);
-    res.json({ message: 'تم حذف أمر الشراء' });
+    const requestsResult = await pool.query(
+      `SELECT pr.*, w.name as warehouse_name,
+        u.full_name as requested_by_name
+       FROM purchase_requests pr
+       LEFT JOIN warehouses w ON pr.warehouse_id = w.id
+       LEFT JOIN users u ON pr.requested_by = u.id
+       WHERE pr.status IN ('pending', 'approved')
+       AND pr.id NOT IN (
+         SELECT DISTINCT purchase_request_id FROM purchase_orders 
+         WHERE purchase_request_id IS NOT NULL
+       )
+       ORDER BY pr.created_at DESC`
+    );
+
+    const itemsResult = await pool.query(
+      `SELECT pri.*, i.name as item_name, i.code as item_code
+       FROM purchase_request_items pri
+       LEFT JOIN items i ON pri.item_id = i.id
+       ORDER BY pri.id`
+    );
+
+    const requests = requestsResult.rows.map(r => ({
+      ...r,
+      items: itemsResult.rows.filter(i => i.purchase_request_id === r.id)
+    }));
+
+    res.json(requests);
   } catch (err) {
-    console.error('[DELETE /purchase-orders/:id] Error:', err);
+    console.error('Error fetching approved requests:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// GET /purchase-orders/approved
-router.get('/approved', verifyToken, async (req, res) => {
+// Cancel approval — إلغاء اعتماد أمر الشراء وإرجاعه لمسودة
+router.put('/:id/cancel', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query(
+      'SELECT * FROM purchase_orders WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'امر الشراء غير موجود' });
+    }
+
+    const order = existing.rows[0];
+
+    if (order.status !== 'approved') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'امر الشراء ليس في حالة معتمد' });
+    }
+
+    // Check if already linked to a purchase invoice
+    const purchaseCheck = await client.query(
+      'SELECT id FROM purchases WHERE purchase_order_id = $1 LIMIT 1',
+      [id]
+    );
+
+    if (purchaseCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يمكن إلغاء الاعتماد — أمر الشراء مربوط بفاتورة. استخدم إلغاء الفاتورة أولاً' });
+    }
+
+    // Revert PO to draft
+    await client.query(
+      `UPDATE purchase_orders SET status = 'draft', approved_by = NULL, approved_at = NULL, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    // If linked to purchase request, revert request back to approved
+    if (order.purchase_request_id) {
+      await client.query(
+        `UPDATE purchase_requests SET status = 'approved', updated_at = NOW() WHERE id = $1`,
+        [order.purchase_request_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'تم إلغاء اعتماد أمر الشراء وإرجاعه لحالة مسودة' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error canceling PO:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Approve or reject purchase order
+router.put('/:id/approve', verifyToken, requireRole('admin', 'purchasing', 'finance'), async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'الحالة يجب ان تكون معتمد او مرفوض' });
+  }
+
   try {
     const result = await pool.query(
-      `SELECT po.*, s.name as supplier_name, c.name as currency_name
-      FROM purchase_orders po
-      LEFT JOIN suppliers s ON po.supplier_id = s.id
-      LEFT JOIN currencies c ON po.currency_id = c.id
-      WHERE po.status = 'approved'
-      ORDER BY po.order_year DESC, po.order_number DESC`
+      `UPDATE purchase_orders 
+       SET status = $1, approved_by = $2, approved_at = NOW() 
+       WHERE id = $3 
+       RETURNING *`,
+      [status, req.user.id, id]
     );
-    res.json(result.rows);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'امر الشراء غير موجود' });
+    }
+
+    res.json({
+      message: status === 'approved' ? 'تم اعتماد امر الشراء' : 'تم رفض امر الشراء',
+      data: result.rows[0]
+    });
   } catch (err) {
-    console.error('[GET /purchase-orders/approved] Error:', err);
+    console.error('Error approving PO:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Get single purchase order (with items)
+router.get('/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const orderResult = await pool.query(
+      `SELECT po.*, w.name as warehouse_name,
+        u.full_name as created_by_name, au.full_name as approved_by_name
+       FROM purchase_orders po
+       LEFT JOIN warehouses w ON po.warehouse_id = w.id
+       LEFT JOIN users u ON po.created_by = u.id
+       LEFT JOIN users au ON po.approved_by = au.id
+       WHERE po.id = $1`,
+      [id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ message: 'امر الشراء غير موجود' });
+    }
+
+    const itemsResult = await pool.query(
+      `SELECT poi.*, i.name as item_name, i.code as item_code
+       FROM purchase_order_items poi
+       LEFT JOIN items i ON poi.item_id = i.id
+       WHERE poi.purchase_order_id = $1
+       ORDER BY poi.id`,
+      [id]
+    );
+
+    res.json({
+      ...orderResult.rows[0],
+      items: itemsResult.rows
+    });
+  } catch (err) {
+    console.error('Error fetching PO:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });

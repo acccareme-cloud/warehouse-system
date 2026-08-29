@@ -13,7 +13,6 @@ import Suppliers from './pages/Suppliers';
 import SupplierReports from './pages/SupplierReports';
 import PurchaseApprovals from './pages/PurchaseApprovals';
 import Shipments from './pages/Shipments';
-import Currencies from './pages/Currencies';
 
 // Sales Module
 import SalesModule from './pages/SalesModule';
@@ -89,7 +88,6 @@ function App() {
           <Route path="/purchase-approvals" element={<PurchaseApprovals />} />
           <Route path="/supplier-reports" element={<SupplierReports />} />
           <Route path="/shipments" element={<Shipments />} />
-          <Route path="/currencies" element={<Currencies />} />
 
           {/* Sales Module */}
           <Route path="/sales-module" element={<SalesModule />} />

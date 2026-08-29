@@ -3,445 +3,1117 @@ const pool = require('../config/db');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
-// ═══════════════════════════════════════════════════════════════
-// PURCHASES API (محدث - مع is_dummy)
-// ═══════════════════════════════════════════════════════════════
+// Helper: get supplier_id by name
+async function getSupplierIdByName(client, supplierName) {
+  const result = await client.query(
+    'SELECT id FROM suppliers WHERE name = $1 OR supplier_name = $1 LIMIT 1',
+    [supplierName]
+  );
+  return result.rows.length > 0 ? result.rows[0].id : null;
+}
 
-// GET /purchases/next-number
+// Helper: record invoice in supplier_ledger
+async function recordSupplierLedger(client, supplierId, purchase, userId, notes) {
+  if (!supplierId) return;
+  const amount = parseFloat(purchase.net_amount || purchase.total_amount || 0);
+  if (amount <= 0) return;
+
+  await client.query(
+    `SELECT update_supplier_ledger($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [supplierId, 'invoice', purchase.id, 'purchase', purchase.purchase_number, amount, 0, notes || 'فاتورة مشتريات', userId]
+  );
+}
+
+// Helper: reverse invoice from supplier_ledger
+async function reverseSupplierLedger(client, supplierId, purchase, userId, notes) {
+  if (!supplierId) return;
+  const amount = parseFloat(purchase.net_amount || purchase.total_amount || 0);
+  if (amount <= 0) return;
+
+  await client.query(
+    `SELECT update_supplier_ledger($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [supplierId, 'return', purchase.id, 'purchase', purchase.purchase_number, 0, amount, notes || 'عكس فاتورة مشتريات - إلغاء/تعديل', userId]
+  );
+}
+
+// Get next number
 router.get('/next-number', verifyToken, async (req, res) => {
+  const { type } = req.query;
   try {
-    const year = req.query.year || new Date().getFullYear();
-    const gapResult = await pool.query(
-      `SELECT t1.purchase_number + 1 as next_num
-       FROM purchases t1
-       WHERE t1.purchase_year = $1
-         AND t1.status != 'cancelled'
-         AND NOT EXISTS (
-           SELECT 1 FROM purchases t2 
-           WHERE t2.purchase_number = t1.purchase_number + 1 
-           AND t2.purchase_year = $1
-           AND t2.status != 'cancelled'
-         )
-       ORDER BY t1.purchase_number
-       LIMIT 1`,
-      [year]
-    );
-    if (gapResult.rows.length > 0 && gapResult.rows[0].next_num > 0) {
-      return res.json({ nextNumber: gapResult.rows[0].next_num });
+    let prefix;
+    if (type === 'invoice_local') {
+      prefix = 'PIN-LOC';
+    } else if (type === 'invoice_import') {
+      prefix = 'PIN-IMP';
+    } else {
+      prefix = type === 'import' ? 'IMP' : 'LOC';
     }
-    const maxResult = await pool.query(
-      `SELECT COALESCE(MAX(purchase_number), 0) + 1 as next_num 
-       FROM purchases 
-       WHERE purchase_year = $1 AND status != 'cancelled'`,
-      [year]
-    );
-    res.json({ nextNumber: maxResult.rows[0].next_num });
+
+    const result = await pool.query(`
+      SELECT purchase_number as number 
+      FROM purchases 
+      WHERE purchase_number LIKE $1
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `, [`${prefix}-%`]);
+
+    let nextNumber = `${prefix}-0001`;
+    if (result.rows.length > 0) {
+      const lastNumber = result.rows[0].number;
+      const match = lastNumber.match(/\d+/);
+      if (match) {
+        const lastNum = parseInt(match[0]);
+        nextNumber = `${prefix}-${String(lastNum + 1).padStart(4, '0')}`;
+      }
+    }
+
+    res.json({ nextNumber });
   } catch (err) {
-    console.error('[GET /next-number] Error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// GET /purchases
-router.get('/', verifyToken, async (req, res) => {
-  const { year, status, supplier_id, purchase_type, is_dummy } = req.query;
-  try {
-    let query = `
-      SELECT p.*, s.name as supplier_name, s.supplier_code, c.name as currency_name, u.full_name as created_by_name
-      FROM purchases p
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
-      LEFT JOIN currencies c ON p.currency_id = c.id
-      LEFT JOIN users u ON p.created_by = u.id
-      WHERE p.status != 'cancelled'
-    `;
-    const params = [];
-    if (year) { params.push(year); query += ` AND p.purchase_year = $${params.length}`; }
-    if (status) { params.push(status); query += ` AND p.status = $${params.length}`; }
-    if (supplier_id) { params.push(supplier_id); query += ` AND p.supplier_id = $${params.length}`; }
-    if (purchase_type) { params.push(purchase_type); query += ` AND p.purchase_type = $${params.length}`; }
-    if (is_dummy !== undefined) { params.push(is_dummy === 'true'); query += ` AND p.is_dummy = $${params.length}`; }
-    query += ` ORDER BY p.purchase_year DESC, p.purchase_number DESC`;
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('[GET /purchases] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
+// Create purchase/invoice — MULTI-ITEM support
+router.post('/', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const {
+    purchase_type, purchase_number, supplier, warehouse_id,
+    tax_discount_percent, has_vat, has_discount_tax, shipment_id, notes, items
+  } = req.body;
 
-// GET /purchases/:id
-router.get('/:id', verifyToken, async (req, res) => {
-  try {
-    const purchaseResult = await pool.query(
-      `SELECT p.*, s.name as supplier_name, s.supplier_code, c.name as currency_name, c.code as currency_code, u.full_name as created_by_name, sh.shipment_number
-      FROM purchases p
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
-      LEFT JOIN currencies c ON p.currency_id = c.id
-      LEFT JOIN users u ON p.created_by = u.id
-      LEFT JOIN shipments sh ON p.shipment_id = sh.id
-      WHERE p.id = $1`, [req.params.id]
-    );
-    if (purchaseResult.rows.length === 0) return res.status(404).json({ message: 'الفاتورة غير موجودة' });
-    const purchase = purchaseResult.rows[0];
-
-    const itemsResult = await pool.query(
-      `SELECT pi.*, i.name as item_name, i.code as item_code, i.unit_of_measure, i.is_vat_exempt, i.is_profit_tax_exempt
-      FROM purchase_items pi
-      LEFT JOIN items i ON pi.item_id = i.id
-      WHERE pi.purchase_id = $1`, [req.params.id]
-    );
-
-    res.json({ ...purchase, items: itemsResult.rows });
-  } catch (err) {
-    console.error('[GET /purchases/:id] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /purchases
-router.post('/', verifyToken, requireRole('purchasing', 'admin', 'finance'), async (req, res) => {
-  const { purchase_number, purchase_year, supplier_id, purchase_date, purchase_type, currency_id, exchange_rate, has_vat, tax_14_percent, has_discount_tax, tax_discount_percent, notes, is_dummy, dummy_type, dummy_for_user_id, items } = req.body;
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ message: 'يجب إضافة بنود للفاتورة' });
-  }
   const client = await pool.connect();
+
   try {
     await client.query('BEGIN');
 
-    let finalExchangeRate = exchange_rate;
-    if (!finalExchangeRate && currency_id) {
-      const currencyResult = await client.query(`SELECT exchange_rate FROM currencies WHERE id = $1`, [currency_id]);
-      if (currencyResult.rows.length > 0) finalExchangeRate = currencyResult.rows[0].exchange_rate;
+    // Handle multi-item or single-item
+    let itemList = [];
+    if (items && Array.isArray(items) && items.length > 0) {
+      itemList = items;
+    } else if (req.body.item_id) {
+      // Backward compatibility: single item
+      itemList = [{
+        item_id: req.body.item_id,
+        quantity: req.body.quantity,
+        unit_price: req.body.unit_price,
+        unit: req.body.unit,
+        notes: ''
+      }];
     }
-    if (!finalExchangeRate) finalExchangeRate = 1;
 
-    // حساب الإجماليات
+    if (itemList.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'يجب إضافة صنف واحد على الأقل' });
+    }
+
+    // Calculate totals from all items
     let subtotal = 0;
-    let totalVat = 0;
-    let totalDiscountTax = 0;
+    for (const item of itemList) {
+      const qty = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.unit_price) || 0;
+      subtotal += qty * price;
+    }
 
-    for (const item of items) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-      subtotal += itemTotal;
+    const tax14 = (has_vat !== false) ? subtotal * 0.14 : 0;
+    const taxDiscountRate = (has_discount_tax !== false) ? (parseFloat(tax_discount_percent || 0)) : 0;
+    const taxDiscount = subtotal * (taxDiscountRate / 100);
+    const netAmount = subtotal + tax14 - taxDiscount;
 
-      // ضريبة 14% على البند (لو مش معفى)
-      if (has_vat && !item.is_vat_exempt) {
-        const vatRate = parseFloat(tax_14_percent) || 14;
-        totalVat += itemTotal * (vatRate / 100);
-      }
+    // Use first item for backward compatibility in main purchase record
+    const firstItem = itemList[0];
+    const firstQty = parseFloat(firstItem.quantity) || 0;
+    const firstPrice = parseFloat(firstItem.unit_price) || 0;
 
-      // خصم ضريبي
-      if (has_discount_tax) {
-        const discountRate = parseFloat(tax_discount_percent) || 0;
-        totalDiscountTax += itemTotal * (discountRate / 100);
+    const result = await client.query(`
+      INSERT INTO purchases (
+        purchase_type, purchase_number, supplier, item_id, warehouse_id,
+        quantity, unit_price, total_amount, tax_14_percent, tax_discount_percent,
+        tax_discount_amount, net_amount, unit, landed_cost,
+        shipping_cost, customs_duty, customs_vat, clearance_fees, other_fees,
+        final_release_value, import_tax, total_with_tax, tax_14_percent_on_total,
+        commercial_profit_tax_1_percent, transfer_commission_type, transfer_commission_value,
+        transfer_commission_amount, has_vat, has_discount_tax, is_invoice, status, created_by,
+        shipment_id, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+      RETURNING *
+    `, [
+      purchase_type, purchase_number, supplier || '', firstItem.item_id, warehouse_id || 1,
+      firstQty, firstPrice, subtotal, tax14, taxDiscountRate, taxDiscount, netAmount,
+      firstItem.unit || 'عدد', firstPrice,
+      0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0,
+      null, 0, 0,
+      has_vat !== false, has_discount_tax !== false,
+      true, 'draft', req.user.id,
+      shipment_id || null, notes || null
+    ]);
+
+    const purchase = result.rows[0];
+
+    // Insert all items into purchase_items
+    for (const item of itemList) {
+      const qty = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.unit_price) || 0;
+      const itemTotal = qty * price;
+      await client.query(`
+        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        purchase.id, item.item_id, qty, item.unit || 'عدد', price, itemTotal, item.notes || ''
+      ]);
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(purchase);
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating purchase:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// UPDATE — تعديل فاتورة (مسموح فقط في حالة draft) — MULTI-ITEM support
+router.put('/:id', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    purchase_type, purchase_number, supplier, warehouse_id,
+    tax_discount_percent, has_vat, has_discount_tax, shipment_id, notes, items
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query('SELECT * FROM purchases WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    if (existing.rows[0].status !== 'draft') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يمكن تعديل الفاتورة إلا في حالة مسودة. استخدم إلغاء الاعتماد أولاً' });
+    }
+
+    // Handle multi-item or single-item
+    let itemList = [];
+    if (items && Array.isArray(items) && items.length > 0) {
+      itemList = items;
+    } else if (req.body.item_id) {
+      itemList = [{
+        item_id: req.body.item_id,
+        quantity: req.body.quantity,
+        unit_price: req.body.unit_price,
+        unit: req.body.unit,
+        notes: ''
+      }];
+    }
+
+    if (itemList.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'يجب إضافة صنف واحد على الأقل' });
+    }
+
+    // Calculate totals
+    let subtotal = 0;
+    for (const item of itemList) {
+      const qty = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.unit_price) || 0;
+      subtotal += qty * price;
+    }
+
+    const tax14 = (has_vat !== false) ? subtotal * 0.14 : 0;
+    const taxDiscountRate = (has_discount_tax !== false) ? (parseFloat(tax_discount_percent || 0)) : 0;
+    const taxDiscount = subtotal * (taxDiscountRate / 100);
+    const netAmount = subtotal + tax14 - taxDiscount;
+
+    const firstItem = itemList[0];
+    const firstQty = parseFloat(firstItem.quantity) || 0;
+    const firstPrice = parseFloat(firstItem.unit_price) || 0;
+
+    const result = await client.query(`
+      UPDATE purchases SET
+        purchase_type = $1,
+        purchase_number = $2,
+        supplier = $3,
+        item_id = $4,
+        warehouse_id = $5,
+        quantity = $6,
+        unit_price = $7,
+        total_amount = $8,
+        tax_14_percent = $9,
+        tax_discount_percent = $10,
+        tax_discount_amount = $11,
+        net_amount = $12,
+        unit = $13,
+        landed_cost = $14,
+        shipping_cost = 0,
+        customs_duty = 0,
+        customs_vat = 0,
+        clearance_fees = 0,
+        other_fees = 0,
+        final_release_value = 0,
+        import_tax = 0,
+        total_with_tax = 0,
+        tax_14_percent_on_total = 0,
+        commercial_profit_tax_1_percent = 0,
+        transfer_commission_type = null,
+        transfer_commission_value = 0,
+        transfer_commission_amount = 0,
+        has_vat = $15,
+        has_discount_tax = $16,
+        shipment_id = $17,
+        notes = $18,
+        updated_at = NOW()
+      WHERE id = $19
+      RETURNING *
+    `, [
+      purchase_type, purchase_number, supplier || '', firstItem.item_id, warehouse_id,
+      firstQty, firstPrice, subtotal, tax14, taxDiscountRate, taxDiscount, netAmount,
+      firstItem.unit || 'عدد', firstPrice,
+      has_vat !== false, has_discount_tax !== false,
+      shipment_id || null, notes || null,
+      id
+    ]);
+
+    // Delete old items and insert new ones
+    await client.query('DELETE FROM purchase_items WHERE purchase_id = $1', [id]);
+    for (const item of itemList) {
+      const qty = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.unit_price) || 0;
+      const itemTotal = qty * price;
+      await client.query(`
+        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        id, item.item_id, qty, item.unit || 'عدد', price, itemTotal, item.notes || ''
+      ]);
+    }
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error updating purchase:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// DUPLICATE — تكرار فاتورة
+router.post('/:id/duplicate', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const original = await client.query('SELECT * FROM purchases WHERE id = $1', [id]);
+    if (original.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    const p = original.rows[0];
+
+    // توليد رقم جديد
+    const type = p.purchase_type === 'import' ? 'PIN-IMP' : 'PIN-LOC';
+    const lastResult = await client.query(
+      `SELECT purchase_number FROM purchases WHERE purchase_number LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`${type}-%`]
+    );
+    let nextNumber = `${type}-0001`;
+    if (lastResult.rows.length > 0) {
+      const last = lastResult.rows[0].purchase_number;
+      const match = last.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0]) + 1;
+        nextNumber = `${type}-${String(num).padStart(4, '0')}`;
       }
     }
 
-    const totalAmount = subtotal + totalVat - totalDiscountTax;
+    // إنشاء فاتورة جديدة
+    const result = await client.query(`
+      INSERT INTO purchases (
+        purchase_type, purchase_number, supplier, item_id, warehouse_id,
+        quantity, unit_price, total_amount, tax_14_percent, tax_discount_percent,
+        tax_discount_amount, net_amount, unit, landed_cost,
+        shipping_cost, customs_duty, customs_vat, clearance_fees, other_fees,
+        final_release_value, import_tax, total_with_tax, tax_14_percent_on_total,
+        commercial_profit_tax_1_percent, transfer_commission_type, transfer_commission_value,
+        transfer_commission_amount, has_vat, has_discount_tax, is_invoice, status, created_by, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
+      RETURNING *
+    `, [
+      p.purchase_type, nextNumber, p.supplier, p.item_id, p.warehouse_id,
+      p.quantity, p.unit_price, p.total_amount, p.tax_14_percent, p.tax_discount_percent,
+      p.tax_discount_amount, p.net_amount, p.unit, p.landed_cost,
+      p.shipping_cost, p.customs_duty, p.customs_vat, p.clearance_fees, p.other_fees,
+      p.final_release_value, p.import_tax, p.total_with_tax, p.tax_14_percent_on_total,
+      p.commercial_profit_tax_1_percent, p.transfer_commission_type, p.transfer_commission_value,
+      p.transfer_commission_amount, p.has_vat, p.has_discount_tax, true, 'draft', req.user.id,
+      `نسخة من ${p.purchase_number}`
+    ]);
 
-    const purchaseResult = await client.query(
-      `INSERT INTO purchases (purchase_number, purchase_year, supplier_id, purchase_date, purchase_type, status, currency_id, exchange_rate, has_vat, tax_14_percent, has_discount_tax, tax_discount_percent, subtotal, total_vat, total_discount_tax, total_amount, notes, is_dummy, dummy_type, dummy_for_user_id, created_by)
-      VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING *`,
-      [purchase_number, purchase_year || new Date().getFullYear(), supplier_id || null, purchase_date || new Date(), purchase_type || 'local', currency_id || null, finalExchangeRate, has_vat || false, tax_14_percent || 14, has_discount_tax || false, tax_discount_percent || 0, subtotal, totalVat, totalDiscountTax, totalAmount, notes || null, is_dummy || false, dummy_type || null, dummy_for_user_id || null, req.user.id]
-    );
-    const purchaseId = purchaseResult.rows[0].id;
+    const newId = result.rows[0].id;
 
-    for (const item of items) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-      let itemVat = 0;
-      let itemDiscountTax = 0;
+    // نسخ الأصناف
+    const itemsResult = await client.query('SELECT * FROM purchase_items WHERE purchase_id = $1', [id]);
+    for (const item of itemsResult.rows) {
+      await client.query(`
+        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [newId, item.item_id, item.quantity, item.unit, item.unit_price, item.total_amount, item.notes]);
+    }
 
-      if (has_vat && !item.is_vat_exempt) {
-        itemVat = itemTotal * ((parseFloat(tax_14_percent) || 14) / 100);
-      }
-      if (has_discount_tax) {
-        itemDiscountTax = itemTotal * ((parseFloat(tax_discount_percent) || 0) / 100);
-      }
+    await client.query('COMMIT');
+    res.status(201).json({
+      message: `تم تكرار الفاتورة بنجاح برقم ${nextNumber}`,
+      data: result.rows[0]
+    });
 
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Duplicate error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// CANCEL — إلغاء فاتورة وإرجاعها لحالة مسودة (مع إلغاء كل التأثيرات)
+router.put('/:id/cancel', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query('SELECT * FROM purchases WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    const purchase = existing.rows[0];
+
+    // لا يمكن إلغاء الفاتورة إذا كانت مسودة (احذفها عادي)
+    if (purchase.status === 'draft') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'الفاتورة في حالة مسودة — استخدم الحذف العادي' });
+    }
+
+    // 1. لو posted → نرجع المخزن
+    if (purchase.status === 'posted') {
+      // حذف حركات المخزن
       await client.query(
-        `INSERT INTO purchase_items (purchase_id, item_id, quantity, unit_price, total_price, unit_of_measure, notes, is_vat_exempt, is_profit_tax_exempt, customs_duty_rate, customs_duty_amount, vat_amount, discount_tax_amount)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [purchaseId, item.item_id, item.quantity, item.unit_price || 0, itemTotal, item.unit_of_measure || null, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false, item.customs_duty_rate || 0, item.customs_duty_amount || 0, itemVat, itemDiscountTax]
+        `DELETE FROM inventory_movements WHERE reference_type = 'purchase' AND reference_id = $1`,
+        [id]
+      );
+
+      // خصم الكمية من رصيد المخزن
+      const qty = parseFloat(purchase.quantity) || 0;
+      await client.query(`
+        UPDATE inventory_balances 
+        SET quantity = GREATEST(quantity - $1, 0),
+            updated_at = NOW()
+        WHERE item_id = $2 AND warehouse_id = $3
+      `, [qty, purchase.item_id, purchase.warehouse_id]);
+
+      // Serial numbers
+      await client.query(`
+        UPDATE serial_numbers 
+        SET status = 'cancelled'
+        WHERE receipt_voucher_id IN (SELECT id FROM receipt_vouchers WHERE purchase_id = $1)
+      `, [id]);
+    }
+
+    // 2. لو approved أو أعلى → عكس supplier_ledger
+    if (['approved', 'quality_passed', 'warehouse_received', 'posted'].includes(purchase.status)) {
+      const supplierId = await getSupplierIdByName(client, purchase.supplier);
+      if (supplierId) {
+        await reverseSupplierLedger(client, supplierId, purchase, req.user.id, 'إلغاء فاتورة وإرجاع لمسودة');
+      }
+    }
+
+    // 3. إلغاء سند الاستلام
+    await client.query(
+      `UPDATE receipt_vouchers SET status = 'cancelled' WHERE purchase_id = $1`,
+      [id]
+    );
+
+    // 4. رجوع الفاتورة لحالة مسودة
+    await client.query(`
+      UPDATE purchases 
+      SET status = 'draft', 
+          approved_by = NULL, 
+          approved_at = NULL,
+          updated_at = NOW()
+      WHERE id = $1
+    `, [id]);
+
+    // 5. If linked to purchase order, revert PO status back to approved
+    if (purchase.purchase_order_id) {
+      await client.query(
+        "UPDATE purchase_orders SET status = 'approved', updated_at = NOW() WHERE id = $1",
+        [purchase.purchase_order_id]
       );
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ message: 'تم إنشاء الفاتورة بنجاح', data: purchaseResult.rows[0] });
+    res.json({ message: 'تم إلغاء الفاتورة وإرجاعها لحالة مسودة بنجاح' });
+
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[POST /purchases] Error:', err);
+    console.error('Cancel error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
-  } finally { client.release(); }
+  } finally {
+    client.release();
+  }
 });
 
-// POST /purchases/from-po - إنشاء من أمر شراء معتمد
-router.post('/from-po', verifyToken, requireRole('purchasing', 'admin', 'finance'), async (req, res) => {
-  const { purchase_order_id, purchase_number, purchase_year, purchase_date, has_vat, tax_14_percent, has_discount_tax, tax_discount_percent, notes, is_dummy, dummy_type } = req.body;
+// DELETE — حذف فاتورة (مسموح فقط في حالة draft)
+router.delete('/:id', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const { id } = req.params;
   const client = await pool.connect();
+
   try {
     await client.query('BEGIN');
 
-    // جيب بيانات أمر الشراء
+    const existing = await client.query('SELECT * FROM purchases WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    const purchase = existing.rows[0];
+
+    if (purchase.status !== 'draft') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يمكن حذف الفاتورة إلا في حالة مسودة. استخدم إلغاء الاعتماد أولاً' });
+    }
+
+    // Get purchase_order_id before deleting
+    const purchaseOrderResult = await client.query(
+      'SELECT purchase_order_id FROM purchases WHERE id = $1',
+      [id]
+    );
+    const purchaseOrderId = purchaseOrderResult.rows[0]?.purchase_order_id;
+
+    // Delete related records first (foreign key constraints) - in reverse dependency order
+    // serial_numbers -> receipt_vouchers -> purchases
+    await client.query('DELETE FROM serial_numbers WHERE receipt_voucher_id IN (SELECT id FROM receipt_vouchers WHERE purchase_id = $1)', [id]);
+    await client.query('DELETE FROM receipt_vouchers WHERE purchase_id = $1', [id]);
+    await client.query('DELETE FROM purchase_items WHERE purchase_id = $1', [id]);
+    await client.query('DELETE FROM purchases WHERE id = $1', [id]);
+
+    // If linked to purchase order, revert status back to approved
+    if (purchaseOrderId) {
+      await client.query(
+        "UPDATE purchase_orders SET status = 'approved', updated_at = NOW() WHERE id = $1",
+        [purchaseOrderId]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'تم حذف الفاتورة بنجاح' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting purchase:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all purchases and invoices - WITH receipt status
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        p.*, 
+        i.name as item_name, 
+        i.unit as item_unit, 
+        w.name as warehouse_name, 
+        u.full_name as created_by_name,
+        rv.id as receipt_voucher_id,
+        rv.voucher_number as receipt_voucher_number,
+        rv.status as receipt_status
+      FROM purchases p
+      LEFT JOIN items i ON p.item_id = i.id
+      LEFT JOIN warehouses w ON p.warehouse_id = w.id
+      LEFT JOIN users u ON p.created_by = u.id
+      LEFT JOIN receipt_vouchers rv ON p.id = rv.purchase_id
+      ORDER BY p.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Approve purchase/invoice
+router.put('/:id/approve', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  let { status } = req.body;
+
+  console.log('=== APPROVE ===');
+  console.log('ID:', id, 'Status:', status);
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'حالة غير صالحة' });
+    }
+
+    if (status === 'pending') {
+      const checkResult = await client.query(
+        `SELECT status FROM purchases WHERE id = $1`,
+        [id]
+      );
+      if (checkResult.rows.length > 0 && checkResult.rows[0].status === 'draft') {
+        status = 'pending';
+      } else if (checkResult.rows.length > 0 && checkResult.rows[0].status === 'pending') {
+        status = 'approved';
+      }
+    }
+
+    const result = await client.query(`
+      UPDATE purchases 
+      SET status = $1, approved_by = $2, approved_at = NOW()
+      WHERE id = $3
+      RETURNING *
+    `, [status, req.user.id, id]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    const purchase = result.rows[0];
+    console.log('Purchase updated:', purchase);
+
+    // ═══ تسجيل في supplier_ledger عند الاعتماد ═══
+    if (status === 'approved') {
+      const supplierId = await getSupplierIdByName(client, purchase.supplier);
+      if (supplierId) {
+        await recordSupplierLedger(client, supplierId, purchase, req.user.id, 'فاتورة مشتريات معتمدة');
+      }
+
+      // إنشاء سند استلام
+      try {
+        const existingReceipt = await client.query(
+          `SELECT id FROM receipt_vouchers WHERE purchase_id = $1`,
+          [purchase.id]
+        );
+
+        if (existingReceipt.rows.length === 0) {
+          const insertResult = await client.query(`
+            INSERT INTO receipt_vouchers (
+              voucher_number, supplier, item_id, warehouse_id, quantity, unit,
+              purchase_price, tax_14_percent, tax_discount_percent, tax_discount_amount,
+              total_amount, supply_order, receipt_date, created_by, purchase_id,
+              shipping_cost, customs_duty, customs_vat, clearance_fees, other_fees, landed_cost,
+              status
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13, $14,
+              $15, $16, $17, $18, $19, $20, $21
+            )
+            RETURNING *
+          `, [
+            `RCV-${purchase.purchase_number}`,
+            purchase.supplier,
+            purchase.item_id,
+            purchase.warehouse_id,
+            purchase.quantity,
+            purchase.unit || 'عدد',
+            purchase.unit_price,
+            purchase.tax_14_percent,
+            purchase.tax_discount_percent,
+            purchase.tax_discount_amount,
+            purchase.net_amount,
+            purchase.purchase_number,
+            req.user.id,
+            purchase.id,
+            0, 0, 0, 0, 0,  // shipping details = 0 (now in shipments)
+            purchase.unit_price,
+            'pending'
+          ]);
+
+          const voucherId = insertResult.rows[0].id;
+          const purchaseItems = await client.query(
+            `SELECT * FROM purchase_items WHERE purchase_id = $1`,
+            [purchase.id]
+          );
+
+          for (const item of purchaseItems.rows) {
+            await client.query(`
+              INSERT INTO receipt_voucher_items (
+                receipt_voucher_id, item_id, quantity, unit_price, total_amount, unit, notes
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [
+              voucherId,
+              item.item_id,
+              item.quantity,
+              item.unit_price,
+              item.total_amount,
+              item.unit || 'عدد',
+              'مستورد من الفاتورة'
+            ]);
+          }
+        }
+      } catch (insertErr) {
+        console.error('Error creating receipt:', insertErr);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: status === 'approved' ? 'تم الاعتماد وإنشاء سند الاستلام' : 
+               status === 'pending' ? 'تم إرسال الفاتورة للاعتماد' : 'تم تحديث الحالة',
+      data: purchase
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('=== APPROVE ERROR ===');
+    console.error(err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Send for approval
+router.put('/:id/send-for-approval', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(`
+      UPDATE purchases 
+      SET status = 'pending'
+      WHERE id = $1 AND status = 'draft'
+      RETURNING *
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'الفاتورة غير موجودة أو ليست في حالة مسودة' });
+    }
+
+    res.json({
+      message: 'تم إرسال الفاتورة للاعتماد بنجاح',
+      data: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error sending for approval:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Quality Approval
+router.put('/:id/quality-approve', verifyToken, requireRole('quality', 'admin'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(`
+      UPDATE purchases 
+      SET status = 'quality_passed'
+      WHERE id = $1
+      RETURNING *
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    const purchase = result.rows[0];
+    await pool.query(`
+      UPDATE receipt_vouchers 
+      SET status = 'approved_quality',
+          quality_checked_by = $1,
+          quality_checked_at = NOW()
+      WHERE purchase_id = $2
+    `, [req.user.id, purchase.id]);
+
+    res.json({
+      message: 'تم اعتماد الجودة بنجاح',
+      data: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Quality approve error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Quality Reject
+router.put('/:id/quality-reject', verifyToken, requireRole('quality', 'admin'), async (req, res) => {
+  const { id } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(`
+      UPDATE purchases 
+      SET status = 'rejected'
+      WHERE id = $1
+      RETURNING *
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    const purchase = result.rows[0];
+
+    // عكس الحركة في supplier_ledger
+    const supplierId = await getSupplierIdByName(client, purchase.supplier);
+    if (supplierId) {
+      await reverseSupplierLedger(client, supplierId, purchase, req.user.id, 'رفض فاتورة من الجودة');
+    }
+
+    await client.query(`
+      UPDATE receipt_vouchers 
+      SET status = 'cancelled'
+      WHERE purchase_id = $1
+    `, [purchase.id]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'تم رفض الفاتورة من الجودة',
+      data: result.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Quality reject error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Warehouse Receive
+router.put('/:id/warehouse-receive', verifyToken, requireRole('warehouse', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const { received_quantity } = req.body;
+
+  try {
+    await pool.query(`
+      UPDATE purchases 
+      SET status = 'warehouse_received'
+      WHERE id = $1
+    `, [id]);
+
+    const qty = received_quantity !== undefined ? parseFloat(received_quantity) : 0;
+
+    await pool.query(`
+      UPDATE receipt_vouchers 
+      SET status = 'warehouse_received',
+          received_quantity = $1,
+          received_at = NOW(),
+          warehouse_approved_by = $2,
+          warehouse_approved_at = NOW()
+      WHERE purchase_id = $3
+    `, [qty, req.user.id, id]);
+
+    res.json({ 
+      message: 'تم استلام المخزن بنجاح - يرجى استخدام شاشة الإذون للاستلام التفصيلي',
+      redirect_to_receipts: true
+    });
+  } catch (err) {
+    console.error('Warehouse receive error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Post - ترحيل الإذن وإضافة للمخزن
+router.put('/:id/post', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
+  const { id } = req.params;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(`
+      UPDATE purchases 
+      SET status = 'posted'
+      WHERE id = $1 AND status = 'warehouse_received'
+      RETURNING *
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة أو لم يتم استلام المخزن بعد' });
+    }
+
+    const purchase = result.rows[0];
+
+    const receiptResult = await client.query(`
+      UPDATE receipt_vouchers 
+      SET status = 'posted'
+      WHERE purchase_id = $1 AND status = 'warehouse_received'
+      RETURNING *
+    `, [purchase.id]);
+
+    if (receiptResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'سند الاستلام غير موجود أو لم يتم استلام المخزن' });
+    }
+
+    const receipt = receiptResult.rows[0];
+
+    // 1. حركة مخزن
+    const qty = parseFloat(receipt.received_quantity || purchase.quantity);
+    const price = parseFloat(purchase.unit_price);
+
+    await client.query(`
+      INSERT INTO inventory_movements (
+        movement_type, item_id, warehouse_id, quantity, unit_price, 
+        total_amount, reference_type, reference_id, notes, created_by
+      ) VALUES ('in', $1, $2, $3, $4, $5, 'purchase', $6, 'إضافة مخزن من فاتورة مشتريات', $7)
+    `, [
+      purchase.item_id,
+      purchase.warehouse_id,
+      qty,
+      price,
+      purchase.net_amount,
+      purchase.id,
+      req.user.id
+    ]);
+
+    // 2. تحديث رصيد المخزن
+    const balanceResult = await client.query(`
+      SELECT * FROM inventory_balances 
+      WHERE item_id = $1 AND warehouse_id = $2
+    `, [purchase.item_id, purchase.warehouse_id]);
+
+    if (balanceResult.rows.length > 0) {
+      const currentQty = parseFloat(balanceResult.rows[0].quantity);
+      const currentAvgCost = parseFloat(balanceResult.rows[0].average_cost || 0);
+      const newTotalQty = currentQty + qty;
+      const newAvgCost = newTotalQty > 0 
+        ? ((currentQty * currentAvgCost) + (qty * price)) / newTotalQty 
+        : price;
+
+      await client.query(`
+        UPDATE inventory_balances 
+        SET quantity = $1,
+            average_cost = $2,
+            last_movement_date = CURRENT_DATE,
+            updated_at = NOW()
+        WHERE item_id = $3 AND warehouse_id = $4
+      `, [newTotalQty, newAvgCost, purchase.item_id, purchase.warehouse_id]);
+    } else {
+      await client.query(`
+        INSERT INTO inventory_balances (
+          item_id, warehouse_id, quantity, average_cost, last_movement_date
+        ) VALUES ($1, $2, $3, $4, CURRENT_DATE)
+      `, [purchase.item_id, purchase.warehouse_id, qty, price]);
+    }
+
+    // 3. Serial numbers
+    const itemResult = await client.query(
+      `SELECT has_serial FROM items WHERE id = $1`,
+      [purchase.item_id]
+    );
+
+    if (itemResult.rows.length > 0 && itemResult.rows[0].has_serial) {
+      await client.query(`
+        UPDATE serial_numbers 
+        SET status = 'in_stock',
+            warehouse_id = $1
+        WHERE receipt_voucher_id = $2 AND status = 'pending'
+      `, [purchase.warehouse_id, receipt.id]);
+    }
+
+    // ═══ تسجيل في supplier_ledger (لو مش مسجل قبل كده في approve) ═══
+    const existingLedger = await client.query(
+      `SELECT id FROM supplier_ledger WHERE reference_id = $1 AND reference_type = 'purchase' AND transaction_type = 'invoice'`,
+      [purchase.id]
+    );
+
+    if (existingLedger.rows.length === 0) {
+      const supplierId = await getSupplierIdByName(client, purchase.supplier);
+      if (supplierId) {
+        await recordSupplierLedger(client, supplierId, purchase, req.user.id, 'فاتورة مشتريات مرحلة');
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'تم ترحيل الفاتورة وإضافة الكمية للمخزن بنجاح',
+      purchase: purchase,
+      added_quantity: qty,
+      warehouse_id: purchase.warehouse_id
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Post error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// استيراد فاتورة من أمر شراء معتمد
+router.post('/from-po', verifyToken, requireRole('purchasing', 'admin'), async (req, res) => {
+  const { purchase_order_id, selected_items } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
     const poResult = await client.query(
       `SELECT * FROM purchase_orders WHERE id = $1 AND status = 'approved'`,
       [purchase_order_id]
     );
-    if (poResult.rows.length === 0) throw new Error('أمر الشراء غير موجود أو غير معتمد');
+
+    if (poResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'أمر الشراء غير معتمد أو غير موجود' });
+    }
+
     const po = poResult.rows[0];
 
-    // جيب بنود أمر الشراء
-    const poItemsResult = await client.query(
-      `SELECT * FROM purchase_order_items WHERE purchase_order_id = $1`,
-      [purchase_order_id]
+    let itemsQuery = `
+      SELECT poi.*, i.name as item_name, i.unit as item_unit
+      FROM purchase_order_items poi
+      LEFT JOIN items i ON poi.item_id = i.id
+      WHERE poi.purchase_order_id = $1
+    `;
+    let queryParams = [purchase_order_id];
+
+    if (selected_items && selected_items.length > 0) {
+      itemsQuery += ` AND poi.item_id = ANY($2::int[])`;
+      queryParams.push(selected_items);
+    }
+
+    const itemsResult = await client.query(itemsQuery, queryParams);
+
+    if (itemsResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يوجد أصناف للاستيراد' });
+    }
+
+    const items = itemsResult.rows;
+
+    const type = po.order_type === 'import' ? 'import' : 'local';
+    const prefix = type === 'import' ? 'PIN-IMP' : 'PIN-LOC';
+
+    const lastResult = await client.query(
+      `SELECT purchase_number FROM purchases WHERE purchase_number LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`${prefix}-%`]
     );
-    if (poItemsResult.rows.length === 0) throw new Error('أمر الشراء لا يحتوي على بنود');
 
-    // حساب الإجماليات
-    let subtotal = 0;
-    let totalVat = 0;
-    let totalDiscountTax = 0;
-
-    for (const item of poItemsResult.rows) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-      subtotal += itemTotal;
-
-      if (has_vat && !item.is_vat_exempt) {
-        const vatRate = parseFloat(tax_14_percent) || 14;
-        totalVat += itemTotal * (vatRate / 100);
-      }
-
-      if (has_discount_tax) {
-        const discountRate = parseFloat(tax_discount_percent) || 0;
-        totalDiscountTax += itemTotal * (discountRate / 100);
+    let nextNumber = `${prefix}-0001`;
+    if (lastResult.rows.length > 0) {
+      const last = lastResult.rows[0].purchase_number;
+      const match = last.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0]) + 1;
+        nextNumber = `${prefix}-${String(num).padStart(4, '0')}`;
       }
     }
 
-    const totalAmount = subtotal + totalVat - totalDiscountTax;
+    const totalEgp = items.reduce((sum, i) => sum + (parseFloat(i.total_egp) || 0), 0);
+    const totalQty = items.reduce((sum, i) => sum + (parseFloat(i.quantity) || 0), 0);
+    const tax14 = totalEgp * 0.14;
+    const netAmount = totalEgp + tax14;
 
-    const purchaseResult = await client.query(
-      `INSERT INTO purchases (purchase_number, purchase_year, supplier_id, purchase_date, purchase_type, status, currency_id, exchange_rate, has_vat, tax_14_percent, has_discount_tax, tax_discount_percent, subtotal, total_vat, total_discount_tax, total_amount, notes, purchase_order_id, is_dummy, dummy_type, created_by)
-      VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING *`,
-      [purchase_number, purchase_year || new Date().getFullYear(), po.supplier_id, purchase_date || new Date(), po.purchase_type || 'local', po.currency_id, po.exchange_rate, has_vat || false, tax_14_percent || 14, has_discount_tax || false, tax_discount_percent || 0, subtotal, totalVat, totalDiscountTax, totalAmount, notes || po.notes, purchase_order_id, is_dummy || false, dummy_type || null, req.user.id]
-    );
+    const firstItem = items[0];
+
+    const purchaseResult = await client.query(`
+      INSERT INTO purchases (
+        purchase_type, purchase_number, supplier, item_id, warehouse_id,
+        quantity, unit_price, total_amount, tax_14_percent, tax_discount_percent,
+        tax_discount_amount, net_amount, unit, landed_cost,
+        shipping_cost, customs_duty, customs_vat, clearance_fees, other_fees,
+        final_release_value, import_tax, total_with_tax, tax_14_percent_on_total,
+        commercial_profit_tax_1_percent, transfer_commission_type, transfer_commission_value,
+        transfer_commission_amount, has_vat, has_discount_tax, is_invoice, status, created_by, purchase_order_id, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+      RETURNING *
+    `, [
+      po.order_type, nextNumber, po.supplier, firstItem.item_id, po.warehouse_id,
+      totalQty, totalEgp / totalQty, totalEgp, tax14, 0, 0, netAmount, firstItem.unit || 'عدد', totalEgp / totalQty,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, true, true, true, 'draft', req.user.id, po.id,
+      `فاتورة متعددة الأصناف من ${po.order_number}: ${items.map(i => `${i.item_name} (${i.quantity})`).join('، ')}`
+    ]);
+
     const purchaseId = purchaseResult.rows[0].id;
 
-    for (const item of poItemsResult.rows) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-      let itemVat = 0;
-      let itemDiscountTax = 0;
+    for (const item of items) {
+      await client.query(`
+        INSERT INTO purchase_items (
+          purchase_id, item_id, quantity, unit, unit_price, total_amount, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        purchaseId,
+        item.item_id,
+        item.quantity,
+        item.unit || 'عدد',
+        item.unit_price_egp || 0,
+        item.total_egp || 0,
+        `مستورد من ${po.order_number}`
+      ]);
+    }
 
-      if (has_vat && !item.is_vat_exempt) {
-        itemVat = itemTotal * ((parseFloat(tax_14_percent) || 14) / 100);
-      }
-      if (has_discount_tax) {
-        itemDiscountTax = itemTotal * ((parseFloat(tax_discount_percent) || 0) / 100);
-      }
-
+    if (!selected_items || selected_items.length === items.length) {
       await client.query(
-        `INSERT INTO purchase_items (purchase_id, item_id, quantity, unit_price, total_price, unit_of_measure, notes, is_vat_exempt, is_profit_tax_exempt, customs_duty_rate, customs_duty_amount, vat_amount, discount_tax_amount)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [purchaseId, item.item_id, item.quantity, item.unit_price || 0, itemTotal, item.unit_of_measure || null, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false, item.customs_duty_rate || 0, item.customs_duty_amount || 0, itemVat, itemDiscountTax]
+        `UPDATE purchase_orders SET status = 'completed' WHERE id = $1`,
+        [purchase_order_id]
       );
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ message: 'تم إنشاء الفاتورة من أمر الشراء بنجاح', data: purchaseResult.rows[0] });
+
+    res.status(201).json({
+      message: `تم إنشاء الفاتورة بنجاح مع ${items.length} صنف`,
+      data: purchaseResult.rows[0]
+    });
+
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[POST /purchases/from-po] Error:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// PUT /purchases/:id
-router.put('/:id', verifyToken, requireRole('purchasing', 'admin', 'finance'), async (req, res) => {
-  const { supplier_id, purchase_date, has_vat, tax_14_percent, has_discount_tax, tax_discount_percent, notes, is_dummy, dummy_type, dummy_for_user_id, items } = req.body;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const purchaseResult = await client.query(`SELECT status FROM purchases WHERE id = $1`, [req.params.id]);
-    if (purchaseResult.rows.length === 0) throw new Error('الفاتورة غير موجودة');
-    if (purchaseResult.rows[0].status === 'posted') throw new Error('لا يمكن تعديل فاتورة مرحلة');
-
-    if (items && Array.isArray(items)) {
-      await client.query(`DELETE FROM purchase_items WHERE purchase_id = $1`, [req.params.id]);
-
-      let subtotal = 0;
-      let totalVat = 0;
-      let totalDiscountTax = 0;
-
-      for (const item of items) {
-        const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-        subtotal += itemTotal;
-
-        if (has_vat && !item.is_vat_exempt) {
-          const vatRate = parseFloat(tax_14_percent) || 14;
-          totalVat += itemTotal * (vatRate / 100);
-        }
-
-        if (has_discount_tax) {
-          const discountRate = parseFloat(tax_discount_percent) || 0;
-          totalDiscountTax += itemTotal * (discountRate / 100);
-        }
-
-        let itemVat = 0;
-        let itemDiscountTax = 0;
-        if (has_vat && !item.is_vat_exempt) itemVat = itemTotal * ((parseFloat(tax_14_percent) || 14) / 100);
-        if (has_discount_tax) itemDiscountTax = itemTotal * ((parseFloat(tax_discount_percent) || 0) / 100);
-
-        await client.query(
-          `INSERT INTO purchase_items (purchase_id, item_id, quantity, unit_price, total_price, unit_of_measure, notes, is_vat_exempt, is_profit_tax_exempt, customs_duty_rate, customs_duty_amount, vat_amount, discount_tax_amount)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [req.params.id, item.item_id, item.quantity, item.unit_price || 0, itemTotal, item.unit_of_measure || null, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false, item.customs_duty_rate || 0, item.customs_duty_amount || 0, itemVat, itemDiscountTax]
-        );
-      }
-
-      const totalAmount = subtotal + totalVat - totalDiscountTax;
-      await client.query(
-        `UPDATE purchases SET supplier_id = $1, purchase_date = $2, has_vat = $3, tax_14_percent = $4, has_discount_tax = $5, tax_discount_percent = $6, subtotal = $7, total_vat = $8, total_discount_tax = $9, total_amount = $10, notes = $11, is_dummy = $12, dummy_type = $13, dummy_for_user_id = $14, updated_at = NOW() WHERE id = $15`,
-        [supplier_id || null, purchase_date || new Date(), has_vat || false, tax_14_percent || 14, has_discount_tax || false, tax_discount_percent || 0, subtotal, totalVat, totalDiscountTax, totalAmount, notes || null, is_dummy || false, dummy_type || null, dummy_for_user_id || null, req.params.id]
-      );
-    } else {
-      await client.query(
-        `UPDATE purchases SET supplier_id = $1, purchase_date = $2, has_vat = $3, tax_14_percent = $4, has_discount_tax = $5, tax_discount_percent = $6, notes = $7, is_dummy = $8, dummy_type = $9, dummy_for_user_id = $10, updated_at = NOW() WHERE id = $11`,
-        [supplier_id || null, purchase_date || new Date(), has_vat || false, tax_14_percent || 14, has_discount_tax || false, tax_discount_percent || 0, notes || null, is_dummy || false, dummy_type || null, dummy_for_user_id || null, req.params.id]
-      );
-    }
-
-    await client.query('COMMIT');
-    res.json({ message: 'تم تحديث الفاتورة' });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[PUT /purchases/:id] Error:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// PUT /purchases/:id/approve
-router.put('/:id/approve', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `UPDATE purchases SET status = 'approved', approved_by = $1, approved_at = NOW(), updated_at = NOW() WHERE id = $2 AND status = 'draft' RETURNING *`,
-      [req.user.id, req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(400).json({ message: 'لا يمكن اعتماد الفاتورة' });
-    res.json({ message: 'تم اعتماد الفاتورة', data: result.rows[0] });
-  } catch (err) {
-    console.error('[PUT /purchases/:id/approve] Error:', err);
+    console.error('Error creating invoice from PO:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
   }
 });
 
-// PUT /purchases/:id/post
-router.put('/:id/post', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
-  const client = await pool.connect();
+// جلب أصناف الفاتورة
+router.get('/:id/items', verifyToken, async (req, res) => {
   try {
-    await client.query('BEGIN');
-    const purchaseResult = await client.query(`SELECT * FROM purchases WHERE id = $1`, [req.params.id]);
-    if (purchaseResult.rows.length === 0) throw new Error('الفاتورة غير موجودة');
-    const purchase = purchaseResult.rows[0];
-    if (purchase.status !== 'approved') throw new Error('يجب اعتماد الفاتورة أولاً');
+    const result = await pool.query(`
+      SELECT pi.*, i.name as item_name, i.code as item_code
+      FROM purchase_items pi
+      LEFT JOIN items i ON pi.item_id = i.id
+      WHERE pi.purchase_id = $1
+    `, [req.params.id]);
 
-    // جيب بنود الفاتورة
-    const itemsResult = await client.query(`SELECT * FROM purchase_items WHERE purchase_id = $1`, [req.params.id]);
-
-    // لو مش فاتورة وهمية، ضيف للمخزن
-    if (!purchase.is_dummy) {
-      for (const item of itemsResult.rows) {
-        await client.query(
-          `UPDATE items SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2`,
-          [item.quantity, item.item_id]
-        );
-
-        // حركة مخزنية
-        await client.query(
-          `INSERT INTO inventory_movements (item_id, movement_type, quantity, unit_cost, reference_type, reference_id, notes, created_by)
-          VALUES ($1, 'in', $2, $3, 'purchase', $4, $5, $6)`,
-          [item.item_id, item.quantity, item.unit_price, req.params.id, `فاتورة شراء #${purchase.purchase_number}`, req.user.id]
-        );
-      }
-    } else {
-      // فاتورة وهمية - ضيف للمخزون الضريبي فقط
-      for (const item of itemsResult.rows) {
-        await client.query(
-          `UPDATE items SET tax_inventory_quantity = tax_inventory_quantity + $1, updated_at = NOW() WHERE id = $2`,
-          [item.quantity, item.item_id]
-        );
-      }
-    }
-
-    // دفتر أستاذ المورد
-    if (purchase.supplier_id) {
-      await client.query(
-        `INSERT INTO supplier_ledger (supplier_id, transaction_type, reference_type, reference_id, debit_amount, credit_amount, balance_after, currency, exchange_rate, notes, created_by)
-        VALUES ($1, 'purchase', 'purchase', $2, $3, 0, 0, $4, $5, $6, $7)`,
-        [purchase.supplier_id, req.params.id, purchase.total_amount, purchase.currency_id ? 'USD' : 'EGP', purchase.exchange_rate || 1, `فاتورة شراء #${purchase.purchase_number}`, req.user.id]
-      );
-
-      await client.query(
-        `UPDATE suppliers SET total_purchases = COALESCE(total_purchases, 0) + $1, balance = COALESCE(balance, 0) + $1, updated_at = NOW() WHERE id = $2`,
-        [purchase.total_amount, purchase.supplier_id]
-      );
-    }
-
-    await client.query(
-      `UPDATE purchases SET status = 'posted', posted_by = $1, posted_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *`,
-      [req.user.id, req.params.id]
-    );
-
-    await client.query('COMMIT');
-    res.json({ message: 'تم ترحيل الفاتورة بنجاح', data: purchaseResult.rows[0] });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[PUT /purchases/:id/post] Error:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// PUT /purchases/:id/cancel
-router.put('/:id/cancel', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
-  try {
-    const result = await pool.query(
-      `UPDATE purchases SET status = 'cancelled', updated_at = NOW() WHERE id = $1 AND status != 'posted' RETURNING *`,
-      [req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(400).json({ message: 'لا يمكن إلغاء الفاتورة' });
-    res.json({ message: 'تم إلغاء الفاتورة', data: result.rows[0] });
-  } catch (err) {
-    console.error('[PUT /purchases/:id/cancel] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// DELETE /purchases/:id
-router.delete('/:id', verifyToken, requireRole('admin'), async (req, res) => {
-  try {
-    const checkResult = await pool.query(`SELECT status FROM purchases WHERE id = $1`, [req.params.id]);
-    if (checkResult.rows.length === 0) return res.status(404).json({ message: 'الفاتورة غير موجودة' });
-    if (checkResult.rows[0].status === 'posted') return res.status(400).json({ message: 'لا يمكن حذف فاتورة مرحلة' });
-    await pool.query(`DELETE FROM purchases WHERE id = $1`, [req.params.id]);
-    res.json({ message: 'تم حذف الفاتورة' });
-  } catch (err) {
-    console.error('[DELETE /purchases/:id] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// GET /purchases/dummy - الفواتير الوهمية
-router.get('/dummy', verifyToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT p.*, s.name as supplier_name, c.name as currency_name
-      FROM purchases p
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
-      LEFT JOIN currencies c ON p.currency_id = c.id
-      WHERE p.is_dummy = true AND p.status != 'cancelled'
-      ORDER BY p.purchase_year DESC, p.purchase_number DESC`
-    );
     res.json(result.rows);
   } catch (err) {
-    console.error('[GET /purchases/dummy] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('Error fetching purchase items:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

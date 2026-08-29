@@ -3,14 +3,39 @@ const pool = require('../config/db');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
+// Helper: حساب إجمالي المصاريف للتكلفة (مع خصم VAT المسترد)
+const getCostExpensesSQL = () => `
+  SELECT 
+    COALESCE(SUM(
+      CASE 
+        WHEN is_tax_only = true THEN 0
+        WHEN has_tax_invoice = true AND tax_invoice_amount > 0 THEN tax_invoice_amount
+        WHEN has_tax_invoice = true AND (tax_invoice_amount IS NULL OR tax_invoice_amount = 0) THEN GREATEST(total_egp - COALESCE(vat_amount, 0), 0)
+        ELSE total_egp 
+      END
+    ), 0) as cost_total,
+    COALESCE(SUM(
+      CASE 
+        WHEN is_tax_only = true THEN total_egp
+        WHEN has_tax_invoice = true THEN COALESCE(vat_amount, 0)
+        ELSE 0
+      END
+    ), 0) as tax_total,
+    COALESCE(SUM(total_egp), 0) as gross_total
+  FROM shipment_expenses 
+  WHERE shipment_id = $1
+`;
+
 // ═══════════════════════════════════════════════════════════════
-// SHIPMENTS API - Final Version with Customs Expenses Linking
+// SHIPMENTS API (محدث بالكامل + Logging + Unlink Invoice)
 // ═══════════════════════════════════════════════════════════════
 
 // GET /shipments/next-number
 router.get('/next-number', verifyToken, async (req, res) => {
   try {
     const year = req.query.year || new Date().getFullYear();
+
+    // Find first gap in active (non-cancelled) shipments
     const gapResult = await pool.query(
       `SELECT t1.shipment_number + 1 as next_num
        FROM shipments t1
@@ -26,15 +51,19 @@ router.get('/next-number', verifyToken, async (req, res) => {
        LIMIT 1`,
       [year]
     );
+
     if (gapResult.rows.length > 0 && gapResult.rows[0].next_num > 0) {
       return res.json({ nextNumber: gapResult.rows[0].next_num });
     }
+
+    // If no gap, use max + 1 of active shipments
     const maxResult = await pool.query(
       `SELECT COALESCE(MAX(shipment_number), 0) + 1 as next_num 
        FROM shipments 
        WHERE shipment_year = $1 AND status != 'cancelled'`,
       [year]
     );
+
     res.json({ nextNumber: maxResult.rows[0].next_num });
   } catch (err) {
     console.error('[GET /next-number] Error:', err);
@@ -70,31 +99,36 @@ router.get('/', verifyToken, async (req, res) => {
 // GET /shipments/:id
 router.get('/:id', verifyToken, async (req, res) => {
   try {
+    console.log(`[GET /shipments/${req.params.id}] Starting...`);
+
     const shipmentResult = await pool.query(
-      `SELECT s.*, sup.name as supplier_name, p.purchase_number, p.total_amount as purchase_total, p.exchange_rate as purchase_exchange_rate, p.purchase_type, u.full_name as created_by_name
+      `SELECT s.*, sup.name as supplier_name, p.purchase_number, p.total_amount as purchase_total_egp, p.exchange_rate as purchase_exchange_rate, u.full_name as created_by_name
       FROM shipments s
       LEFT JOIN suppliers sup ON s.supplier_id = sup.id
       LEFT JOIN purchases p ON s.purchase_id = p.id
       LEFT JOIN users u ON s.created_by = u.id
       WHERE s.id = $1`, [req.params.id]
     );
+    console.log(`[GET /shipments/${req.params.id}] Shipment query OK, rows:`, shipmentResult.rows.length);
+
     if (shipmentResult.rows.length === 0) return res.status(404).json({ message: 'الشحنة غير موجودة' });
     const shipment = shipmentResult.rows[0];
 
     const expensesResult = await pool.query(
-      `SELECT se.*, t.transaction_number as treasury_number, c.custody_number, ba.account_name as bank_account_name, ec.category_name as category_name, sup.name as supplier_name
+      `SELECT se.*, t.transaction_number as treasury_number, c.custody_number, ec.category_name as category_name, sup.name as supplier_name
       FROM shipment_expenses se
       LEFT JOIN treasury t ON se.treasury_id = t.id
       LEFT JOIN custodies c ON se.custody_id = c.id
-      LEFT JOIN bank_accounts ba ON se.bank_account_id = ba.id
       LEFT JOIN expense_categories ec ON se.expense_category_id = ec.id
       LEFT JOIN suppliers sup ON se.supplier_id = sup.id
       WHERE se.shipment_id = $1 ORDER BY se.expense_date`, [req.params.id]
     );
+    console.log(`[GET /shipments/${req.params.id}] Expenses query OK, rows:`, expensesResult.rows.length);
 
     const clearanceResult = await pool.query(
       `SELECT * FROM shipment_clearances WHERE shipment_id = $1`, [req.params.id]
     );
+    console.log(`[GET /shipments/${req.params.id}] Clearance query OK, rows:`, clearanceResult.rows.length);
 
     const attachmentsResult = await pool.query(
       `SELECT sa.*, u.full_name as uploaded_by_name
@@ -102,6 +136,7 @@ router.get('/:id', verifyToken, async (req, res) => {
       LEFT JOIN users u ON sa.uploaded_by = u.id
       WHERE sa.shipment_id = $1`, [req.params.id]
     );
+    console.log(`[GET /shipments/${req.params.id}] Attachments query OK, rows:`, attachmentsResult.rows.length);
 
     let itemsResult = { rows: [] };
     if (shipment.purchase_id) {
@@ -111,125 +146,17 @@ router.get('/:id', verifyToken, async (req, res) => {
         LEFT JOIN items i ON pi.item_id = i.id
         WHERE pi.purchase_id = $1`, [shipment.purchase_id]
       );
+      console.log(`[GET /shipments/${req.params.id}] Items query OK, rows:`, itemsResult.rows.length);
     }
 
-    // حساب التكلفة النهائية
-    const costCalculation = await calculateLandedCost(req.params.id, pool);
-
-    const response = { 
-      ...shipment, 
-      expenses: expensesResult.rows, 
-      clearances: clearanceResult.rows, 
-      attachments: attachmentsResult.rows, 
-      items: itemsResult.rows,
-      cost_calculation: costCalculation
-    };
+    const response = { ...shipment, expenses: expensesResult.rows, clearances: clearanceResult.rows, attachments: attachmentsResult.rows, items: itemsResult.rows };
+    console.log(`[GET /shipments/${req.params.id}] Response ready`);
     res.json(response);
   } catch (err) {
     console.error(`[GET /shipments/${req.params.id}] ERROR:`, err);
     res.status(500).json({ message: 'Server error', error: err.message, stack: err.stack });
   }
 });
-
-// ═══════════════════════════════════════════════════════════════
-// Helper: حساب التكلفة النهائية (Landed Cost)
-// ═══════════════════════════════════════════════════════════════
-async function calculateLandedCost(shipmentId, dbPool) {
-  try {
-    const shipmentResult = await dbPool.query(
-      `SELECT s.*, p.total_amount as purchase_total, p.exchange_rate as purchase_exchange_rate, p.purchase_type
-       FROM shipments s 
-       LEFT JOIN purchases p ON s.purchase_id = p.id 
-       WHERE s.id = $1`,
-      [shipmentId]
-    );
-    if (shipmentResult.rows.length === 0) return null;
-    const shipment = shipmentResult.rows[0];
-    if (!shipment.purchase_id) return null;
-
-    const invoiceValueUsd = parseFloat(shipment.purchase_total) || 0;
-    const bankExchangeRate = parseFloat(shipment.purchase_exchange_rate) || 0;
-
-    // كل المصاريف المربوطة بالشحنة
-    const expensesResult = await dbPool.query(
-      `SELECT 
-        COALESCE(SUM(total_egp), 0) as total_expenses,
-        COALESCE(SUM(CASE WHEN paid_by = 'company' THEN total_egp ELSE 0 END), 0) as company_expenses,
-        COALESCE(SUM(CASE WHEN paid_by = 'custodian' THEN total_egp ELSE 0 END), 0) as custodian_expenses,
-        COALESCE(SUM(CASE WHEN expense_type IN ('سداد مورد', 'bank_payment', 'تحويل بنكي') THEN total_egp ELSE 0 END), 0) as bank_payments,
-        COALESCE(SUM(CASE WHEN expense_type IN ('customs', 'clearance', 'تخليص') THEN total_egp ELSE 0 END), 0) as clearance_expenses,
-        COALESCE(SUM(CASE WHEN expense_type IN ('shipping', 'شحن') THEN total_egp ELSE 0 END), 0) as shipping_expenses,
-        COALESCE(SUM(CASE WHEN expense_type IN ('bank_commission', 'عمولة بنك') THEN total_egp ELSE 0 END), 0) as bank_commission,
-        COALESCE(SUM(CASE WHEN expense_type NOT IN ('سداد مورد', 'bank_payment', 'تحويل بنكي', 'customs', 'clearance', 'تخليص', 'shipping', 'شحن', 'bank_commission', 'عمولة بنك') THEN total_egp ELSE 0 END), 0) as other_expenses
-      FROM shipment_expenses 
-      WHERE shipment_id = $1 AND status = 'linked'`,
-      [shipmentId]
-    );
-
-    const totalExpensesEgp = parseFloat(expensesResult.rows[0].total_expenses) || 0;
-    const companyExpenses = parseFloat(expensesResult.rows[0].company_expenses) || 0;
-    const custodianExpenses = parseFloat(expensesResult.rows[0].custodian_expenses) || 0;
-    const bankPayments = parseFloat(expensesResult.rows[0].bank_payments) || 0;
-    const clearanceExpenses = parseFloat(expensesResult.rows[0].clearance_expenses) || 0;
-    const shippingExpenses = parseFloat(expensesResult.rows[0].shipping_expenses) || 0;
-    const bankCommission = parseFloat(expensesResult.rows[0].bank_commission) || 0;
-    const otherExpenses = parseFloat(expensesResult.rows[0].other_expenses) || 0;
-
-    // ضرائب الإفراج الجمركي
-    const clearanceResult = await dbPool.query(
-      `SELECT COALESCE(SUM(total_taxes), 0) as total_clearance_taxes,
-              COALESCE(SUM(customs_duty_total), 0) as total_customs_duty,
-              COALESCE(SUM(vat_amount), 0) as total_vat,
-              COALESCE(SUM(profit_tax_amount), 0) as total_profit_tax
-       FROM shipment_clearances 
-       WHERE shipment_id = $1`,
-      [shipmentId]
-    );
-    const totalClearanceTaxes = parseFloat(clearanceResult.rows[0].total_clearance_taxes) || 0;
-    const totalCustomsDuty = parseFloat(clearanceResult.rows[0].total_customs_duty) || 0;
-    const totalVat = parseFloat(clearanceResult.rows[0].total_vat) || 0;
-    const totalProfitTax = parseFloat(clearanceResult.rows[0].total_profit_tax) || 0;
-
-    // إجمالي التكلفة
-    const totalCostEgp = totalExpensesEgp + totalClearanceTaxes;
-
-    // المعامل الفعلي
-    let actualExchangeRate = 0;
-    if (invoiceValueUsd > 0) {
-      actualExchangeRate = totalCostEgp / invoiceValueUsd;
-    }
-
-    return {
-      invoice_value_usd: invoiceValueUsd,
-      bank_exchange_rate: bankExchangeRate,
-      invoice_value_egp: invoiceValueUsd * bankExchangeRate,
-
-      expenses: {
-        total_expenses: totalExpensesEgp,
-        company_expenses: companyExpenses,
-        custodian_expenses: custodianExpenses,
-        bank_payments: bankPayments,
-        clearance_expenses: clearanceExpenses,
-        shipping_expenses: shippingExpenses,
-        bank_commission: bankCommission,
-        other_expenses: otherExpenses
-      },
-
-      taxes: {
-        total_clearance_taxes: totalClearanceTaxes,
-        customs_duty: totalCustomsDuty,
-        vat_14: totalVat,
-        profit_tax_1: totalProfitTax
-      },
-
-      total_cost_egp: totalCostEgp,
-      actual_exchange_rate: actualExchangeRate
-    };
-  } catch (err) {
-    console.error('[calculateLandedCost] Error:', err);
-    return null;
-  }
-}
 
 // POST /shipments
 router.post('/', verifyToken, requireRole('purchasing', 'admin', 'finance'), async (req, res) => {
@@ -264,24 +191,15 @@ router.put('/:id', verifyToken, requireRole('purchasing', 'admin', 'finance'), a
 });
 
 // ═══════════════════════════════════════════════════════════════
-// EXPENSES (مصاريف الشحنة)
+// EXPENSES (محدث - مع تعديل وحذف)
 // ═══════════════════════════════════════════════════════════════
 
 // POST /shipments/:id/expenses
 router.post('/:id/expenses', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { 
-    expense_date, expense_type, description, 
-    amount_egp, amount_usd, amount_eur, amount_other, other_currency, 
-    exchange_rate_usd, exchange_rate_eur, exchange_rate_other, 
-    treasury_id, custody_id, bank_account_id, paid_by,
-    has_tax_invoice, tax_invoice_number, tax_invoice_amount, 
-    notes, is_dummy, expense_category_id, is_tax_only, supplier_id, payment_method 
-  } = req.body;
-
+  const { expense_date, expense_type, description, amount_egp, amount_usd, amount_eur, amount_other, other_currency, exchange_rate_usd, exchange_rate_eur, exchange_rate_other, treasury_id, custody_id, has_tax_invoice, tax_invoice_number, tax_invoice_amount, notes, is_dummy, expense_category_id, is_tax_only, supplier_id, payment_method } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
     const egp = parseFloat(amount_egp) || 0;
     const usd = (parseFloat(amount_usd) || 0) * (parseFloat(exchange_rate_usd) || 0);
     const eur = (parseFloat(amount_eur) || 0) * (parseFloat(exchange_rate_eur) || 0);
@@ -289,28 +207,12 @@ router.post('/:id/expenses', verifyToken, requireRole('finance', 'admin'), async
     const total_egp = egp + usd + eur + other;
 
     const expenseResult = await client.query(
-      `INSERT INTO shipment_expenses (
-        shipment_id, expense_date, expense_type, description, 
-        amount_egp, amount_usd, amount_eur, amount_other, other_currency, 
-        exchange_rate_usd, exchange_rate_eur, exchange_rate_other, total_egp, 
-        treasury_id, custody_id, bank_account_id, paid_by,
-        has_tax_invoice, tax_invoice_number, tax_invoice_amount, 
-        notes, is_dummy, expense_category_id, is_tax_only, supplier_id, payment_method, status, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28) RETURNING *`,
-      [
-        req.params.id, expense_date || new Date(), expense_type, description || null, 
-        amount_egp || 0, amount_usd || 0, amount_eur || 0, amount_other || 0, other_currency || null, 
-        exchange_rate_usd || 0, exchange_rate_eur || 0, exchange_rate_other || 0, total_egp, 
-        treasury_id || null, custody_id || null, bank_account_id || null, paid_by || 'company',
-        has_tax_invoice || false, tax_invoice_number || null, tax_invoice_amount || null, 
-        notes || null, is_dummy || false, expense_category_id || null, is_tax_only || false, supplier_id || null, payment_method || 'cash', 'linked', req.user.id
-      ]
+      `INSERT INTO shipment_expenses (shipment_id, expense_date, expense_type, description, amount_egp, amount_usd, amount_eur, amount_other, other_currency, exchange_rate_usd, exchange_rate_eur, exchange_rate_other, total_egp, treasury_id, custody_id, has_tax_invoice, tax_invoice_number, tax_invoice_amount, notes, is_dummy, expense_category_id, is_tax_only, supplier_id, payment_method, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25) RETURNING *`,
+      [req.params.id, expense_date || new Date(), expense_type, description || null, amount_egp || 0, amount_usd || 0, amount_eur || 0, amount_other || 0, other_currency || null, exchange_rate_usd || 0, exchange_rate_eur || 0, exchange_rate_other || 0, total_egp, treasury_id || null, custody_id || null, has_tax_invoice || false, tax_invoice_number || null, tax_invoice_amount || null, notes || null, is_dummy || false, expense_category_id || null, is_tax_only || false, supplier_id || null, payment_method || 'cash', req.user.id]
     );
-
     if (treasury_id) await client.query(`UPDATE treasury SET shipment_id = $1 WHERE id = $2`, [req.params.id, treasury_id]);
     if (custody_id) await client.query(`UPDATE custodies SET shipment_id = $1 WHERE id = $2`, [req.params.id, custody_id]);
-    if (bank_account_id) await client.query(`UPDATE bank_accounts SET last_used = NOW() WHERE id = $1`, [bank_account_id]);
-
     await client.query('COMMIT');
     res.status(201).json({ message: 'تم إضافة المصروف بنجاح', data: expenseResult.rows[0] });
   } catch (err) {
@@ -320,17 +222,9 @@ router.post('/:id/expenses', verifyToken, requireRole('finance', 'admin'), async
   } finally { client.release(); }
 });
 
-// PUT /shipments/:id/expenses/:expenseId
+// PUT /shipments/:id/expenses/:expenseId - تعديل مصروف
 router.put('/:id/expenses/:expenseId', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { 
-    expense_date, expense_type, description, 
-    amount_egp, amount_usd, amount_eur, amount_other, other_currency, 
-    exchange_rate_usd, exchange_rate_eur, exchange_rate_other, 
-    treasury_id, custody_id, bank_account_id, paid_by,
-    has_tax_invoice, tax_invoice_number, tax_invoice_amount, 
-    notes, is_dummy, expense_category_id, is_tax_only, supplier_id, payment_method 
-  } = req.body;
-
+  const { expense_date, expense_type, description, amount_egp, amount_usd, amount_eur, amount_other, other_currency, exchange_rate_usd, exchange_rate_eur, exchange_rate_other, treasury_id, custody_id, has_tax_invoice, tax_invoice_number, tax_invoice_amount, notes, is_dummy, expense_category_id, is_tax_only, supplier_id, payment_method } = req.body;
   try {
     const egp = parseFloat(amount_egp) || 0;
     const usd = (parseFloat(amount_usd) || 0) * (parseFloat(exchange_rate_usd) || 0);
@@ -339,22 +233,9 @@ router.put('/:id/expenses/:expenseId', verifyToken, requireRole('finance', 'admi
     const total_egp = egp + usd + eur + other;
 
     const result = await pool.query(
-      `UPDATE shipment_expenses SET 
-        expense_date = $1, expense_type = $2, description = $3, 
-        amount_egp = $4, amount_usd = $5, amount_eur = $6, amount_other = $7, other_currency = $8, 
-        exchange_rate_usd = $9, exchange_rate_eur = $10, exchange_rate_other = $11, total_egp = $12, 
-        treasury_id = $13, custody_id = $14, bank_account_id = $15, paid_by = $16,
-        has_tax_invoice = $17, tax_invoice_number = $18, tax_invoice_amount = $19, 
-        notes = $20, is_dummy = $21, expense_category_id = $22, is_tax_only = $23, supplier_id = $24, payment_method = $25
-      WHERE id = $26 AND shipment_id = $27 RETURNING *`,
-      [
-        expense_date, expense_type, description || null, 
-        amount_egp || 0, amount_usd || 0, amount_eur || 0, amount_other || 0, other_currency || null, 
-        exchange_rate_usd || 0, exchange_rate_eur || 0, exchange_rate_other || 0, total_egp, 
-        treasury_id || null, custody_id || null, bank_account_id || null, paid_by || 'company',
-        has_tax_invoice || false, tax_invoice_number || null, tax_invoice_amount || null, 
-        notes || null, is_dummy || false, expense_category_id || null, is_tax_only || false, supplier_id || null, payment_method || 'cash', req.params.expenseId, req.params.id
-      ]
+      `UPDATE shipment_expenses SET expense_date = $1, expense_type = $2, description = $3, amount_egp = $4, amount_usd = $5, amount_eur = $6, amount_other = $7, other_currency = $8, exchange_rate_usd = $9, exchange_rate_eur = $10, exchange_rate_other = $11, total_egp = $12, treasury_id = $13, custody_id = $14, has_tax_invoice = $15, tax_invoice_number = $16, tax_invoice_amount = $17, notes = $18, is_dummy = $19, expense_category_id = $20, is_tax_only = $21, supplier_id = $22, payment_method = $23
+      WHERE id = $24 AND shipment_id = $25 RETURNING *`,
+      [expense_date, expense_type, description || null, amount_egp || 0, amount_usd || 0, amount_eur || 0, amount_other || 0, other_currency || null, exchange_rate_usd || 0, exchange_rate_eur || 0, exchange_rate_other || 0, total_egp, treasury_id || null, custody_id || null, has_tax_invoice || false, tax_invoice_number || null, tax_invoice_amount || null, notes || null, is_dummy || false, expense_category_id || null, is_tax_only || false, supplier_id || null, payment_method || 'cash', req.params.expenseId, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'المصروف غير موجود' });
     res.json({ message: 'تم تحديث المصروف', data: result.rows[0] });
@@ -377,150 +258,12 @@ router.delete('/:id/expenses/:expenseId', verifyToken, requireRole('finance', 'a
 });
 
 // ═══════════════════════════════════════════════════════════════
-// AVAILABLE EXPENSES (المصاريف الجمركية المتاحة)
-// ═══════════════════════════════════════════════════════════════
-
-// GET /shipments/available-expenses
-// بيجيب كل المصاريف الجمركية المتاحة (pending) اللي مش مربوطة بشحنة
-router.get('/available-expenses', verifyToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT se.*, 
-        t.transaction_number as treasury_number,
-        c.custody_number,
-        ba.account_name as bank_account_name,
-        sup.name as supplier_name,
-        ec.category_name as category_name
-      FROM shipment_expenses se
-      LEFT JOIN treasury t ON se.treasury_id = t.id
-      LEFT JOIN custodies c ON se.custody_id = c.id
-      LEFT JOIN bank_accounts ba ON se.bank_account_id = ba.id
-      LEFT JOIN suppliers sup ON se.supplier_id = sup.id
-      LEFT JOIN expense_categories ec ON se.expense_category_id = ec.id
-      WHERE se.status = 'pending' 
-        AND se.shipment_id IS NULL
-        AND (se.expense_type IN ('customs', 'clearance', 'تخليص', 'shipping', 'شحن', 'bank_commission', 'عمولة بنك')
-             OR se.has_tax_invoice = true)
-      ORDER BY se.expense_date DESC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('[GET /available-expenses] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /shipments/:id/link-expenses
-// بيربط مصاريف جمركية متاحة بالشحنة
-router.post('/:id/link-expenses', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { expense_ids } = req.body;
-  if (!expense_ids || !Array.isArray(expense_ids) || expense_ids.length === 0) {
-    return res.status(400).json({ message: 'يجب اختيار مصاريف للربط' });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // تأكد إن الشحنة موجودة
-    const shipmentResult = await client.query(`SELECT id FROM shipments WHERE id = $1`, [req.params.id]);
-    if (shipmentResult.rows.length === 0) throw new Error('الشحنة غير موجودة');
-
-    const linkedExpenses = [];
-    for (const expenseId of expense_ids) {
-      // تأكد إن المصروف موجود ومتاح
-      const expenseCheck = await client.query(
-        `SELECT id, status, shipment_id FROM shipment_expenses WHERE id = $1`,
-        [expenseId]
-      );
-
-      if (expenseCheck.rows.length === 0) {
-        throw new Error(`المصروف #${expenseId} غير موجود`);
-      }
-
-      if (expenseCheck.rows[0].status === 'linked') {
-        throw new Error(`المصروف #${expenseId} مربوط بشحنة أخرى`);
-      }
-
-      // ربط المصروف بالشحنة
-      const result = await client.query(
-        `UPDATE shipment_expenses 
-         SET shipment_id = $1, status = 'linked', updated_at = NOW() 
-         WHERE id = $2 AND status = 'pending' AND shipment_id IS NULL
-         RETURNING *`,
-        [req.params.id, expenseId]
-      );
-
-      if (result.rows.length > 0) {
-        linkedExpenses.push(result.rows[0]);
-      }
-    }
-
-    await client.query('COMMIT');
-    res.json({ 
-      message: `تم ربط ${linkedExpenses.length} مصروف بالشحنة بنجاح`,
-      data: { linked_expenses: linkedExpenses }
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[POST /link-expenses] ERROR:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// POST /shipments/:id/unlink-expenses
-// بيفك ربط مصاريف من الشحنة (بيرجعهم pending)
-router.post('/:id/unlink-expenses', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { expense_ids } = req.body;
-  if (!expense_ids || !Array.isArray(expense_ids) || expense_ids.length === 0) {
-    return res.status(400).json({ message: 'يجب اختيار مصاريف لفك الربط' });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    const unlinkedExpenses = [];
-    for (const expenseId of expense_ids) {
-      const result = await client.query(
-        `UPDATE shipment_expenses 
-         SET shipment_id = NULL, status = 'pending', updated_at = NOW() 
-         WHERE id = $1 AND shipment_id = $2 AND status = 'linked'
-         RETURNING *`,
-        [expenseId, req.params.id]
-      );
-
-      if (result.rows.length > 0) {
-        unlinkedExpenses.push(result.rows[0]);
-      }
-    }
-
-    await client.query('COMMIT');
-    res.json({ 
-      message: `تم فك ربط ${unlinkedExpenses.length} مصروف من الشحنة`,
-      data: { unlinked_expenses: unlinkedExpenses }
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[POST /unlink-expenses] ERROR:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// ═══════════════════════════════════════════════════════════════
-// CLEARANCE (إفراج جمركي)
+// CLEARANCE (محدث - مع تعديل وحذف + نسب ضريبة من الإعدادات)
 // ═══════════════════════════════════════════════════════════════
 
 // POST /shipments/:id/clearance
 router.post('/:id/clearance', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { 
-    clearance_number, clearance_date, declared_value, 
-    customs_duty_rate, customs_duty_amount, 
-    is_vat_exempt, is_profit_tax_exempt, 
-    vat_rate, profit_tax_rate, 
-    attachment_url, notes 
-  } = req.body;
-
+  const { clearance_number, clearance_date, declared_value, import_tax, is_vat_exempt, is_profit_tax_exempt, vat_rate, profit_tax_rate, attachment_url, notes } = req.body;
   try {
     let finalVatRate = vat_rate;
     let finalProfitTaxRate = profit_tax_rate;
@@ -532,39 +275,10 @@ router.post('/:id/clearance', verifyToken, requireRole('finance', 'admin'), asyn
       if (finalProfitTaxRate == null) finalProfitTaxRate = settings.customs_profit_tax_rate || 1;
     }
 
-    // حساب ضريبة الوارد
-    let finalCustomsDuty = 0;
-    if (customs_duty_amount && parseFloat(customs_duty_amount) > 0) {
-      finalCustomsDuty = parseFloat(customs_duty_amount);
-    } else if (customs_duty_rate && parseFloat(customs_duty_rate) > 0) {
-      finalCustomsDuty = (parseFloat(declared_value || 0) * parseFloat(customs_duty_rate)) / 100;
-    }
-
-    // حساب الضرائب
-    const valueAfterDuty = parseFloat(declared_value || 0) + finalCustomsDuty;
-    const vatAmount = is_vat_exempt ? 0 : (valueAfterDuty * parseFloat(finalVatRate)) / 100;
-    const profitTaxAmount = is_profit_tax_exempt ? 0 : (parseFloat(declared_value || 0) * parseFloat(finalProfitTaxRate)) / 100;
-    const totalTaxes = finalCustomsDuty + vatAmount + profitTaxAmount;
-    const finalReleaseValue = parseFloat(declared_value || 0) + totalTaxes;
-
     const result = await pool.query(
-      `INSERT INTO shipment_clearances (
-        shipment_id, clearance_number, clearance_date, declared_value, 
-        customs_duty_rate, customs_duty_amount, customs_duty_total,
-        is_vat_exempt, is_profit_tax_exempt, 
-        vat_rate, profit_tax_rate, vat_amount, profit_tax_amount,
-        total_taxes, final_release_value,
-        attachment_url, notes, created_by
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *`,
-      [
-        req.params.id, clearance_number, clearance_date || new Date(), declared_value || 0,
-        customs_duty_rate || 0, customs_duty_amount || 0, finalCustomsDuty,
-        is_vat_exempt || false, is_profit_tax_exempt || false,
-        finalVatRate, finalProfitTaxRate, vatAmount, profitTaxAmount,
-        totalTaxes, finalReleaseValue,
-        attachment_url || null, notes || null, req.user.id
-      ]
+      `INSERT INTO shipment_clearances (shipment_id, clearance_number, clearance_date, declared_value, import_tax, is_vat_exempt, is_profit_tax_exempt, vat_rate, profit_tax_rate, attachment_url, notes, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [req.params.id, clearance_number, clearance_date || new Date(), declared_value || 0, import_tax || 0, is_vat_exempt || false, is_profit_tax_exempt || false, finalVatRate, finalProfitTaxRate, attachment_url || null, notes || null, req.user.id]
     );
     res.status(201).json({ message: 'تم إضافة الإفراج بنجاح', data: result.rows[0] });
   } catch (err) {
@@ -573,47 +287,14 @@ router.post('/:id/clearance', verifyToken, requireRole('finance', 'admin'), asyn
   }
 });
 
-// PUT /shipments/:id/clearance/:clearanceId
+// PUT /shipments/:id/clearance/:clearanceId - تعديل إفراج
 router.put('/:id/clearance/:clearanceId', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { 
-    clearance_number, clearance_date, declared_value, 
-    customs_duty_rate, customs_duty_amount,
-    is_vat_exempt, is_profit_tax_exempt, 
-    vat_rate, profit_tax_rate, 
-    attachment_url, notes 
-  } = req.body;
-
+  const { clearance_number, clearance_date, declared_value, import_tax, is_vat_exempt, is_profit_tax_exempt, vat_rate, profit_tax_rate, attachment_url, notes } = req.body;
   try {
-    let finalCustomsDuty = 0;
-    if (customs_duty_amount && parseFloat(customs_duty_amount) > 0) {
-      finalCustomsDuty = parseFloat(customs_duty_amount);
-    } else if (customs_duty_rate && parseFloat(customs_duty_rate) > 0) {
-      finalCustomsDuty = (parseFloat(declared_value || 0) * parseFloat(customs_duty_rate)) / 100;
-    }
-
-    const valueAfterDuty = parseFloat(declared_value || 0) + finalCustomsDuty;
-    const vatAmount = is_vat_exempt ? 0 : (valueAfterDuty * parseFloat(vat_rate || 14)) / 100;
-    const profitTaxAmount = is_profit_tax_exempt ? 0 : (parseFloat(declared_value || 0) * parseFloat(profit_tax_rate || 1)) / 100;
-    const totalTaxes = finalCustomsDuty + vatAmount + profitTaxAmount;
-    const finalReleaseValue = parseFloat(declared_value || 0) + totalTaxes;
-
     const result = await pool.query(
-      `UPDATE shipment_clearances SET 
-        clearance_number = $1, clearance_date = $2, declared_value = $3,
-        customs_duty_rate = $4, customs_duty_amount = $5, customs_duty_total = $6,
-        is_vat_exempt = $7, is_profit_tax_exempt = $8,
-        vat_rate = $9, profit_tax_rate = $10, vat_amount = $11, profit_tax_amount = $12,
-        total_taxes = $13, final_release_value = $14,
-        attachment_url = $15, notes = $16
-      WHERE id = $17 AND shipment_id = $18 RETURNING *`,
-      [
-        clearance_number, clearance_date, declared_value || 0,
-        customs_duty_rate || 0, customs_duty_amount || 0, finalCustomsDuty,
-        is_vat_exempt || false, is_profit_tax_exempt || false,
-        vat_rate || 14, profit_tax_rate || 1, vatAmount, profitTaxAmount,
-        totalTaxes, finalReleaseValue,
-        attachment_url, notes, req.params.clearanceId, req.params.id
-      ]
+      `UPDATE shipment_clearances SET clearance_number = $1, clearance_date = $2, declared_value = $3, import_tax = $4, is_vat_exempt = $5, is_profit_tax_exempt = $6, vat_rate = $7, profit_tax_rate = $8, attachment_url = $9, notes = $10
+      WHERE id = $11 AND shipment_id = $12 RETURNING *`,
+      [clearance_number, clearance_date, declared_value, import_tax, is_vat_exempt, is_profit_tax_exempt, vat_rate || null, profit_tax_rate || null, attachment_url, notes, req.params.clearanceId, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'الإفراج غير موجود' });
     res.json({ message: 'تم تحديث الإفراج', data: result.rows[0] });
@@ -636,7 +317,7 @@ router.delete('/:id/clearance/:clearanceId', verifyToken, requireRole('finance',
 });
 
 // ═══════════════════════════════════════════════════════════════
-// LINK INVOICE + COST
+// LINK INVOICE + COST (معدل بالكامل - المعادلة الصحيحة)
 // ═══════════════════════════════════════════════════════════════
 
 router.put('/:id/link-invoice', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
@@ -646,21 +327,35 @@ router.put('/:id/link-invoice', verifyToken, requireRole('finance', 'admin'), as
     await client.query('BEGIN');
     console.log(`[link-invoice] shipment=${req.params.id}, purchase=${purchase_id}`);
 
+    // 1. جيب بيانات الفاتورة
     const purchaseResult = await client.query(`SELECT * FROM purchases WHERE id = $1`, [purchase_id]);
     if (purchaseResult.rows.length === 0) throw new Error('الفاتورة غير موجودة');
     const purchase = purchaseResult.rows[0];
+    console.log(`[link-invoice] Purchase: total_amount=${purchase.total_amount}, exchange_rate=${purchase.exchange_rate}`);
 
-    const invoiceValueUsd = parseFloat(purchase.total_amount) || 0;
-    const bankExchangeRate = parseFloat(exchange_rate) || parseFloat(purchase.exchange_rate) || 50;
+    // 2. إجمالي المصاريف بالجنيه (بخصم VAT)
+    const expensesResult = await client.query(getCostExpensesSQL(), [req.params.id]);
+    const totalExpensesEgp = parseFloat(expensesResult.rows[0].cost_total) || 0;
+    console.log(`[link-invoice] Total expenses: ${totalExpensesEgp}`);
 
-    // حساب التكلفة
-    const costCalculation = await calculateLandedCost(req.params.id, client);
-    const totalCostEgp = costCalculation ? costCalculation.total_cost_egp : 0;
+    // 3. بيانات الفاتورة
+    const purchaseTotalEgp = parseFloat(purchase.total_amount) || 0;
+    const purchaseExchangeRate = parseFloat(exchange_rate) || parseFloat(purchase.exchange_rate) || 50;
+
+    // 4. قيمة الفاتورة بالدولار = إجمالي الجنيه ÷ سعر الدولار
+    const invoiceValueUsd = purchaseTotalEgp / purchaseExchangeRate;
+
+    // 5. إجمالي التكلفة = قيمة الفاتورة بالجنيه + المصاريف
+    const totalCostEgp = purchaseTotalEgp + totalExpensesEgp;
+
+    // 6. المعامل الفعلي = إجمالي التكلفة ÷ الدولار
     let actualExchangeRate = 0;
     if (invoiceValueUsd > 0) {
       actualExchangeRate = totalCostEgp / invoiceValueUsd;
     }
+    console.log(`[link-invoice] invoiceValueUsd=${invoiceValueUsd}, totalCostEgp=${totalCostEgp}, actualRate=${actualExchangeRate}`);
 
+    // 7. حدّث الشحنة
     await client.query(
       `UPDATE shipments SET 
         purchase_id = $1, 
@@ -674,50 +369,79 @@ router.put('/:id/link-invoice', verifyToken, requireRole('finance', 'admin'), as
 
     await client.query(`UPDATE purchases SET shipment_id = $1 WHERE id = $2`, [req.params.id, purchase_id]);
     await client.query('COMMIT');
+    console.log(`[link-invoice] SUCCESS`);
 
     res.json({ 
       message: 'تم ربط الفاتورة بنجاح', 
       data: { 
         shipment_id: req.params.id, 
         purchase_id, 
-        invoice_value_usd: invoiceValueUsd,
-        bank_exchange_rate: bankExchangeRate,
-        total_cost_egp: totalCostEgp,
-        actual_exchange_rate: actualExchangeRate,
-        cost_calculation: costCalculation
+        actual_exchange_rate: actualExchangeRate, 
+        total_expenses_egp: totalExpensesEgp, 
+        invoice_value_usd: invoiceValueUsd, 
+        invoice_value_egp: purchaseTotalEgp, 
+        total_cost_egp: totalCostEgp, 
+        exchange_rate_used: purchaseExchangeRate 
       } 
     });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[link-invoice] ERROR:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
+    res.status(500).json({ message: err.message || 'Server error', error: err.message, stack: err.stack });
   } finally { client.release(); }
 });
 
 // ═══════════════════════════════════════════════════════════════
-// UNLINK INVOICE
+// UNLINK INVOICE (فك ربط الفاتورة من الشاشة)
 // ═══════════════════════════════════════════════════════════════
 
 router.put('/:id/unlink-invoice', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const shipmentResult = await client.query(`SELECT purchase_id FROM shipments WHERE id = $1`, [req.params.id]);
-    if (shipmentResult.rows.length === 0) throw new Error('الشحنة غير موجودة');
-    const oldPurchaseId = shipmentResult.rows[0].purchase_id;
-    if (oldPurchaseId) {
-      await client.query(`UPDATE purchases SET shipment_id = NULL WHERE id = $1`, [oldPurchaseId]);
+    console.log(`[unlink-invoice] shipment=${req.params.id}`);
+
+    // 1. جيب الشحنة عشان نعرف purchase_id القديم
+    const shipmentResult = await client.query(
+      `SELECT purchase_id FROM shipments WHERE id = $1`, 
+      [req.params.id]
+    );
+
+    if (shipmentResult.rows.length === 0) {
+      throw new Error('الشحنة غير موجودة');
     }
+
+    const oldPurchaseId = shipmentResult.rows[0].purchase_id;
+    console.log(`[unlink-invoice] Old purchase_id=${oldPurchaseId}`);
+
+    // 2. فك الربط من الفاتورة (لو فيه فاتورة مربوطة)
+    if (oldPurchaseId) {
+      await client.query(
+        `UPDATE purchases SET shipment_id = NULL WHERE id = $1`,
+        [oldPurchaseId]
+      );
+      console.log(`[unlink-invoice] Cleared shipment_id from purchase ${oldPurchaseId}`);
+    }
+
+    // 3. فك الربط من الشحنة
     await client.query(
       `UPDATE shipments SET 
-        purchase_id = NULL, invoice_number = NULL,
-        actual_exchange_rate = NULL, total_cost_egp = NULL,
+        purchase_id = NULL, 
+        invoice_number = NULL,
+        actual_exchange_rate = NULL, 
+        total_cost_egp = NULL,
         status = 'open' 
        WHERE id = $1`,
       [req.params.id]
     );
+
     await client.query('COMMIT');
-    res.json({ message: 'تم فك ربط الفاتورة بنجاح', data: { shipment_id: req.params.id, unlinked_purchase_id: oldPurchaseId }});
+    console.log(`[unlink-invoice] SUCCESS`);
+
+    res.json({ 
+      message: 'تم فك ربط الفاتورة بنجاح',
+      data: { shipment_id: req.params.id, unlinked_purchase_id: oldPurchaseId }
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[unlink-invoice] ERROR:', err);
@@ -726,7 +450,7 @@ router.put('/:id/unlink-invoice', verifyToken, requireRole('finance', 'admin'), 
 });
 
 // ═══════════════════════════════════════════════════════════════
-// CUSTODY SETTLEMENT (تسوية عهدة المخلص)
+// CUSTODY SETTLEMENT (تسوية عهدة المخلص من داخل الشحنة)
 // ═══════════════════════════════════════════════════════════════
 
 router.post('/:id/custody-settlement', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
@@ -734,13 +458,17 @@ router.post('/:id/custody-settlement', verifyToken, requireRole('finance', 'admi
   if (!custody_id || !expenses || !Array.isArray(expenses) || expenses.length === 0) {
     return res.status(400).json({ message: 'بيانات غير كاملة: custody_id والمصاريف مطلوبة' });
   }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
+    // 1. تأكد إن العهدة موجودة
     const custodyResult = await client.query(`SELECT * FROM custodies WHERE id = $1`, [custody_id]);
     if (custodyResult.rows.length === 0) throw new Error('العهدة غير موجودة');
     const custody = custodyResult.rows[0];
+
+    // 2. تأكد إن العهدة مربوطة بالشحنة دي (أو مفيش shipment_id)
     if (custody.shipment_id && String(custody.shipment_id) !== String(req.params.id)) {
       throw new Error('العهدة مربوطة بشحنة أخرى');
     }
@@ -748,6 +476,7 @@ router.post('/:id/custody-settlement', verifyToken, requireRole('finance', 'admi
     let settlementTotal = 0;
     const insertedExpenses = [];
 
+    // 3. سجل كل مصروف
     for (const exp of expenses) {
       const egp = parseFloat(exp.amount_egp) || 0;
       const usd = (parseFloat(exp.amount_usd) || 0) * (parseFloat(exp.exchange_rate_usd) || 0);
@@ -758,23 +487,41 @@ router.post('/:id/custody-settlement', verifyToken, requireRole('finance', 'admi
         `INSERT INTO shipment_expenses (
           shipment_id, expense_date, expense_type, description,
           amount_egp, amount_usd, exchange_rate_usd, total_egp,
-          custody_id, paid_by, has_tax_invoice, tax_invoice_number, tax_invoice_amount,
+          custody_id, has_tax_invoice, tax_invoice_number, tax_invoice_amount,
           vat_rate, withholding_rate, vat_amount, withholding_amount, net_amount,
-          notes, payment_method, created_by, expense_category_id, is_tax_only, is_dummy, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+          notes, payment_method, created_by, expense_category_id, is_tax_only, is_dummy
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
         RETURNING *`,
         [
-          req.params.id, exp.expense_date || new Date(), exp.expense_type, exp.description || null,
-          exp.amount_egp || 0, exp.amount_usd || 0, exp.exchange_rate_usd || 0, total_egp,
-          custody_id, 'custodian', exp.has_tax_invoice || false, exp.tax_invoice_number || null, exp.tax_invoice_amount || null,
-          exp.vat_rate || 0, exp.withholding_rate || 0, exp.vat_amount || 0, exp.withholding_amount || 0,
-          exp.net_amount || total_egp, exp.notes || null, exp.payment_method || 'cash',
-          req.user.id, exp.expense_category_id || null, exp.is_tax_only || false, exp.is_dummy || false, 'linked'
+          req.params.id,
+          exp.expense_date || new Date(),
+          exp.expense_type,
+          exp.description || null,
+          exp.amount_egp || 0,
+          exp.amount_usd || 0,
+          exp.exchange_rate_usd || 0,
+          total_egp,
+          custody_id,
+          exp.has_tax_invoice || false,
+          exp.tax_invoice_number || null,
+          exp.tax_invoice_amount || null,
+          exp.vat_rate || 0,
+          exp.withholding_rate || 0,
+          exp.vat_amount || 0,
+          exp.withholding_amount || 0,
+          exp.net_amount || total_egp,
+          exp.notes || null,
+          exp.payment_method || 'cash',
+          req.user.id,
+          exp.expense_category_id || null,
+          exp.is_tax_only || false,
+          exp.is_dummy || false
         ]
       );
       insertedExpenses.push(expenseResult.rows[0]);
     }
 
+    // 4. حدّث العهدة
     const newSettled = parseFloat(custody.settled_amount || 0) + settlementTotal;
     const newRemaining = parseFloat(custody.amount || 0) - newSettled;
     let newStatus = 'active';
@@ -786,168 +533,235 @@ router.post('/:id/custody-settlement', verifyToken, requireRole('finance', 'admi
       [newSettled, newRemaining, newStatus, custody_id]
     );
 
-    // تسجيل التسوية في جدول custody_settlements
-    await client.query(
-      `INSERT INTO custody_settlements (custody_id, shipment_id, settlement_date, total_expenses, custody_amount, difference, settlement_type, notes, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        custody_id, req.params.id, new Date(), settlementTotal, parseFloat(custody.amount || 0),
-        newRemaining, newRemaining > 0 ? 'refund' : newRemaining < 0 ? 'additional_payment' : 'exact',
-        `تسوية عهدة #${custody.custody_number}`, req.user.id
-      ]
-    );
-
     await client.query('COMMIT');
+
     res.status(201).json({
       message: 'تم تسجيل تسوية العهدة بنجاح',
-      data: { custody_id, settlement_total: settlementTotal, remaining: newRemaining, status: newStatus, expenses: insertedExpenses }
+      data: {
+        custody_id,
+        settlement_total: settlementTotal,
+        remaining: newRemaining,
+        status: newStatus,
+        expenses: insertedExpenses
+      }
     });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[custody-settlement] ERROR:', err);
     res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
+  } finally {
+    client.release();
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
-// RECALCULATE COST
+// RECALCULATE COST (إعادة حساب التكلفة بعد إضافة مصاريف)
 // ═══════════════════════════════════════════════════════════════
 
 router.put('/:id/recalculate-cost', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // 1. جيب الشحنة والفاتورة
     const shipmentResult = await client.query(
-      `SELECT s.*, p.total_amount as purchase_total, p.exchange_rate as purchase_exchange_rate, p.purchase_type
+      `SELECT s.*, p.total_amount as purchase_total_egp, p.exchange_rate as purchase_exchange_rate 
        FROM shipments s 
        LEFT JOIN purchases p ON s.purchase_id = p.id 
        WHERE s.id = $1`,
       [req.params.id]
     );
-    if (shipmentResult.rows.length === 0) return res.status(404).json({ message: 'الشحنة غير موجودة' });
+
+    if (shipmentResult.rows.length === 0) {
+      return res.status(404).json({ message: 'الشحنة غير موجودة' });
+    }
+
     const shipment = shipmentResult.rows[0];
-    if (!shipment.purchase_id) return res.status(400).json({ message: 'الشحنة غير مربوطة بفاتورة' });
+    if (!shipment.purchase_id) {
+      return res.status(400).json({ message: 'الشحنة غير مربوطة بفاتورة' });
+    }
 
-    const invoiceValueUsd = parseFloat(shipment.purchase_total) || 0;
-    const costCalculation = await calculateLandedCost(req.params.id, client);
-    const totalCostEgp = costCalculation ? costCalculation.total_cost_egp : 0;
+    // 2. البيانات المالية
+    const purchaseTotalEgp = parseFloat(shipment.purchase_total_egp) || 0;
+    const purchaseExchangeRate = parseFloat(shipment.purchase_exchange_rate) || 50;
+    const invoiceValueUsd = purchaseTotalEgp / purchaseExchangeRate;
+
+    // 3. المصاريف للتكلفة (بخصم VAT)
+    const expensesResult = await client.query(getCostExpensesSQL(), [req.params.id]);
+    const totalExpensesEgp = parseFloat(expensesResult.rows[0].cost_total) || 0;
+    const totalCostEgp = purchaseTotalEgp + totalExpensesEgp;
+
+    // 4. المعامل الفعلي
     let actualExchangeRate = 0;
-    if (invoiceValueUsd > 0) actualExchangeRate = totalCostEgp / invoiceValueUsd;
+    if (invoiceValueUsd > 0) {
+      actualExchangeRate = totalCostEgp / invoiceValueUsd;
+    }
 
+    // 5. حدّث الشحنة
     await client.query(
       `UPDATE shipments SET actual_exchange_rate = $1, total_cost_egp = $2, updated_at = NOW() WHERE id = $3`,
       [actualExchangeRate, totalCostEgp, req.params.id]
     );
+
     await client.query('COMMIT');
+
     res.json({
       message: 'تم إعادة حساب التكلفة',
       data: {
         shipment_id: req.params.id,
-        invoice_value_usd: invoiceValueUsd,
+        purchase_total_egp: purchaseTotalEgp,
+        total_expenses_egp: totalExpensesEgp,
         total_cost_egp: totalCostEgp,
-        actual_exchange_rate: actualExchangeRate,
-        cost_calculation: costCalculation
+        invoice_value_usd: invoiceValueUsd,
+        actual_exchange_rate: actualExchangeRate
       }
     });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[recalculate-cost] ERROR:', err);
     res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// ═══════════════════════════════════════════════════════════════
-// COST CALCULATION
-// ═══════════════════════════════════════════════════════════════
-
-router.get('/:id/cost-calculation', verifyToken, async (req, res) => {
-  try {
-    const shipmentResult = await pool.query(
-      `SELECT s.*, p.total_amount as purchase_total, p.exchange_rate as purchase_exchange_rate
-       FROM shipments s 
-       LEFT JOIN purchases p ON s.purchase_id = p.id 
-       WHERE s.id = $1`,
-      [req.params.id]
-    );
-    if (shipmentResult.rows.length === 0) return res.status(404).json({ message: 'الشحنة غير موجودة' });
-    const shipment = shipmentResult.rows[0];
-    if (!shipment.purchase_id) return res.status(400).json({ message: 'الشحنة غير مربوطة بفاتورة' });
-
-    const itemsResult = await pool.query(
-      `SELECT pi.*, i.name as item_name, i.code as item_code 
-       FROM purchase_items pi 
-       LEFT JOIN items i ON pi.item_id = i.id 
-       WHERE pi.purchase_id = $1`,
-      [shipment.purchase_id]
-    );
-
-    const invoiceValueUsd = parseFloat(shipment.purchase_total) || 0;
-    const totalCostEgp = parseFloat(shipment.total_cost_egp) || 0;
-    const actualExchangeRate = parseFloat(shipment.actual_exchange_rate) || 0;
-
-    const itemsWithCost = itemsResult.rows.map(item => {
-      const unitPriceUsd = parseFloat(item.unit_price) || 0;
-      const quantity = parseFloat(item.quantity) || 1;
-      const unitCostEgp = unitPriceUsd * actualExchangeRate;
-      const totalCostEgpItem = unitCostEgp * quantity;
-
-      return { 
-        ...item, 
-        unit_price_usd: unitPriceUsd,
-        unit_cost_egp: unitCostEgp.toFixed(2), 
-        total_cost_egp: totalCostEgpItem.toFixed(2), 
-        actual_exchange_rate: actualExchangeRate
-      };
-    });
-
-    res.json({ 
-      shipment_id: shipment.id, 
-      shipment_number: shipment.shipment_number, 
-      invoice_number: shipment.purchase_number,
-      invoice_value_usd: invoiceValueUsd,
-      total_cost_egp: totalCostEgp,
-      actual_exchange_rate: actualExchangeRate,
-      items: itemsWithCost 
-    });
-  } catch (err) {
-    console.error('[cost-calculation] ERROR:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
   }
 });
 
 // ═══════════════════════════════════════════════════════════════
-// CANCEL SHIPMENT
+// CANCEL SHIPMENT (إلغاء شحنة + إتاحة الرقم)
 // ═══════════════════════════════════════════════════════════════
 
 router.put('/:id/cancel', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const shipmentResult = await client.query(`SELECT status, purchase_id FROM shipments WHERE id = $1`, [req.params.id]);
-    if (shipmentResult.rows.length === 0) return res.status(404).json({ message: 'الشحنة غير موجودة' });
-    if (shipmentResult.rows[0].status === 'cancelled') return res.status(400).json({ message: 'الشحنة ملغاة بالفعل' });
-    const oldPurchaseId = shipmentResult.rows[0].purchase_id;
-    if (oldPurchaseId) await client.query(`UPDATE purchases SET shipment_id = NULL WHERE id = $1`, [oldPurchaseId]);
+    console.log(`[cancel] shipment=${req.params.id}`);
 
-    // فك ربط المصاريف
-    await client.query(
-      `UPDATE shipment_expenses SET shipment_id = NULL, status = 'pending' WHERE shipment_id = $1`,
+    // 1. Check if shipment exists and not already cancelled
+    const shipmentResult = await client.query(
+      `SELECT status, purchase_id FROM shipments WHERE id = $1`, 
       [req.params.id]
     );
 
+    if (shipmentResult.rows.length === 0) {
+      return res.status(404).json({ message: 'الشحنة غير موجودة' });
+    }
+
+    if (shipmentResult.rows[0].status === 'cancelled') {
+      return res.status(400).json({ message: 'الشحنة ملغاة بالفعل' });
+    }
+
+    const oldPurchaseId = shipmentResult.rows[0].purchase_id;
+
+    // 2. Unlink purchase if linked
+    if (oldPurchaseId) {
+      await client.query(
+        `UPDATE purchases SET shipment_id = NULL WHERE id = $1`,
+        [oldPurchaseId]
+      );
+      console.log(`[cancel] Cleared shipment_id from purchase ${oldPurchaseId}`);
+    }
+
+    // 3. Cancel the shipment
     await client.query(
-      `UPDATE shipments SET status = 'cancelled', purchase_id = NULL, invoice_number = NULL,
-        actual_exchange_rate = NULL, total_cost_egp = NULL, updated_at = NOW()
+      `UPDATE shipments SET 
+        status = 'cancelled',
+        purchase_id = NULL,
+        invoice_number = NULL,
+        actual_exchange_rate = NULL,
+        total_cost_egp = NULL,
+        updated_at = NOW()
        WHERE id = $1`,
       [req.params.id]
     );
+
     await client.query('COMMIT');
-    res.json({ message: 'تم إلغاء الشحنة وإتاحة رقمها للاستخدام', data: { shipment_id: req.params.id, unlinked_purchase_id: oldPurchaseId }});
+    console.log(`[cancel] SUCCESS`);
+
+    res.json({ 
+      message: 'تم إلغاء الشحنة وإتاحة رقمها للاستخدام',
+      data: { shipment_id: req.params.id, unlinked_purchase_id: oldPurchaseId }
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[cancel] ERROR:', err);
     res.status(500).json({ message: err.message || 'Server error', error: err.message });
   } finally { client.release(); }
+});
+
+router.get('/:id/cost-calculation', verifyToken, async (req, res) => {
+  try {
+    console.log(`[cost-calculation] shipment=${req.params.id}`);
+
+    // 1. جيب الشحنة مع بيانات الفاتورة
+    const shipmentResult = await pool.query(
+      `SELECT s.*, p.total_amount as purchase_total_egp, p.exchange_rate as purchase_exchange_rate, p.purchase_number 
+       FROM shipments s 
+       LEFT JOIN purchases p ON s.purchase_id = p.id 
+       WHERE s.id = $1`, 
+      [req.params.id]
+    );
+    if (shipmentResult.rows.length === 0) return res.status(404).json({ message: 'الشحنة غير موجودة' });
+    const shipment = shipmentResult.rows[0];
+    console.log(`[cost-calculation] Shipment: purchase_id=${shipment.purchase_id}, total_cost_egp=${shipment.total_cost_egp}`);
+
+    // 2. جيب أصناف الفاتورة
+    const itemsResult = await pool.query(
+      `SELECT pi.*, i.name as item_name, i.code as item_code 
+       FROM purchase_items pi 
+       LEFT JOIN items i ON pi.item_id = i.id 
+       WHERE pi.purchase_id = $1`, 
+      [shipment.purchase_id]
+    );
+    console.log(`[cost-calculation] Items: ${itemsResult.rows.length}`);
+
+    // 3. البيانات المالية
+    const purchaseTotalEgp = parseFloat(shipment.purchase_total_egp) || 0;
+    const totalCostEgp = parseFloat(shipment.total_cost_egp) || 0;
+    const actualExchangeRate = parseFloat(shipment.actual_exchange_rate) || 0;
+    const purchaseExchangeRate = parseFloat(shipment.purchase_exchange_rate) || 50;
+
+    // 4. نسبة التكلفة = إجمالي التكلفة ÷ إجمالي الفاتورة
+    const costRatio = purchaseTotalEgp > 0 ? (totalCostEgp / purchaseTotalEgp) : 1;
+
+    // 5. حسب تكلفة كل صنف
+    const itemsWithCost = itemsResult.rows.map(item => {
+      const unitPriceEgp = parseFloat(item.unit_price) || 0;
+      const quantity = parseFloat(item.quantity) || 1;
+
+      const unitCostEgp = unitPriceEgp * costRatio;
+      const totalCostEgpItem = unitCostEgp * quantity;
+
+      const unitPriceUsd = purchaseExchangeRate > 0 ? unitPriceEgp / purchaseExchangeRate : 0;
+
+      return { 
+        ...item, 
+        unit_price_egp: unitPriceEgp,
+        unit_price_usd: unitPriceUsd.toFixed(4),
+        unit_cost_egp: unitCostEgp.toFixed(2), 
+        total_cost_egp: totalCostEgpItem.toFixed(2), 
+        cost_ratio: costRatio.toFixed(6),
+        exchange_rate_used: actualExchangeRate,
+        purchase_exchange_rate: purchaseExchangeRate
+      };
+    });
+
+    console.log(`[cost-calculation] SUCCESS`);
+    res.json({ 
+      shipment_id: shipment.id, 
+      shipment_number: shipment.shipment_number, 
+      invoice_number: shipment.purchase_number,
+      purchase_total_egp: purchaseTotalEgp,
+      total_expenses_egp: totalCostEgp - purchaseTotalEgp,
+      total_cost_egp: totalCostEgp,
+      invoice_value_usd: purchaseTotalEgp / purchaseExchangeRate,
+      actual_exchange_rate: actualExchangeRate,
+      purchase_exchange_rate: purchaseExchangeRate,
+      cost_ratio: costRatio,
+      items: itemsWithCost 
+    });
+  } catch (err) {
+    console.error('[cost-calculation] ERROR:', err);
+    res.status(500).json({ message: 'Server error', error: err.message, stack: err.stack });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -992,19 +806,20 @@ router.delete('/:id', verifyToken, requireRole('admin'), async (req, res) => {
   }
 });
 
+
 // ═══════════════════════════════════════════════════════════════
-// SUPPLIER PAYMENTS
+// SUPPLIER PAYMENTS (سداد الموردين)
 // ═══════════════════════════════════════════════════════════════
 
+// GET /shipments/:id/supplier-payments — كل سدادات الموردين في الشحنة
 router.get('/:id/supplier-payments', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT se.*, sup.name as supplier_name, sup.supplier_code, t.transaction_number as treasury_number, ba.account_name as bank_account_name
+      `SELECT se.*, sup.name as supplier_name, sup.supplier_code, t.transaction_number as treasury_number
       FROM shipment_expenses se
       LEFT JOIN suppliers sup ON se.supplier_id = sup.id
       LEFT JOIN treasury t ON se.treasury_id = t.id
-      LEFT JOIN bank_accounts ba ON se.bank_account_id = ba.id
-      WHERE se.shipment_id = $1 AND se.expense_type IN ('سداد مورد', 'bank_payment', 'تحويل بنكي')
+      WHERE se.shipment_id = $1 AND se.supplier_id IS NOT NULL
       ORDER BY se.expense_date DESC`,
       [req.params.id]
     );
@@ -1015,11 +830,13 @@ router.get('/:id/supplier-payments', verifyToken, async (req, res) => {
   }
 });
 
+// POST /shipments/:id/supplier-payments — سداد مورد مباشرة (من البنك)
 router.post('/:id/supplier-payments', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
-  const { supplier_id, amount_egp, amount_usd, amount_eur, exchange_rate_usd, exchange_rate_eur, payment_method, bank_account_id, treasury_id, notes } = req.body;
+  const { supplier_id, amount_egp, amount_usd, amount_eur, exchange_rate_usd, exchange_rate_eur, payment_method, bank_account_id, notes } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
     const egp = parseFloat(amount_egp) || 0;
     const usd = (parseFloat(amount_usd) || 0) * (parseFloat(exchange_rate_usd) || 0);
     const eur = (parseFloat(amount_eur) || 0) * (parseFloat(exchange_rate_eur) || 0);
@@ -1028,13 +845,23 @@ router.post('/:id/supplier-payments', verifyToken, requireRole('finance', 'admin
     const expenseResult = await client.query(
       `INSERT INTO shipment_expenses 
        (shipment_id, expense_date, expense_type, description, amount_egp, amount_usd, amount_eur, 
-        exchange_rate_usd, exchange_rate_eur, total_egp, supplier_id, payment_method, bank_account_id, treasury_id, paid_by, notes, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *`,
+        exchange_rate_usd, exchange_rate_eur, total_egp, supplier_id, payment_method, notes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [
-        req.params.id, new Date(), 'سداد مورد', notes || 'سداد مورد أجنبي',
-        amount_egp || 0, amount_usd || 0, amount_eur || 0,
-        exchange_rate_usd || 0, exchange_rate_eur || 0, total_egp,
-        supplier_id, payment_method || 'bank', bank_account_id || null, treasury_id || null, 'company', notes || null, 'linked', req.user.id
+        req.params.id,
+        new Date(),
+        'سداد مورد',
+        notes || 'سداد مورد أجنبي',
+        amount_egp || 0,
+        amount_usd || 0,
+        amount_eur || 0,
+        exchange_rate_usd || 0,
+        exchange_rate_eur || 0,
+        total_egp,
+        supplier_id,
+        payment_method || 'bank',
+        notes || null,
+        req.user.id
       ]
     );
 
@@ -1044,21 +871,31 @@ router.post('/:id/supplier-payments', verifyToken, requireRole('finance', 'admin
          (bank_account_id, transaction_type, amount, currency, exchange_rate, description, reference_type, reference_id, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
-          bank_account_id, 'debit', amount_usd || amount_egp || 0,
-          amount_usd ? 'USD' : 'EGP', exchange_rate_usd || 1,
+          bank_account_id,
+          'debit',
+          amount_usd || amount_egp || 0,
+          amount_usd ? 'USD' : 'EGP',
+          exchange_rate_usd || 1,
           notes || `سداد مورد - شحنة #${req.params.id}`,
-          'shipment_expense', expenseResult.rows[0].id, req.user.id
+          'shipment_expense',
+          expenseResult.rows[0].id,
+          req.user.id
         ]
       );
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ message: 'تم تسجيل سداد المورد بنجاح', data: expenseResult.rows[0] });
+    res.status(201).json({ 
+      message: 'تم تسجيل سداد المورد بنجاح', 
+      data: expenseResult.rows[0] 
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[POST /supplier-payments] Error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
-  } finally { client.release(); }
+  } finally { 
+    client.release(); 
+  }
 });
 
 module.exports = router;

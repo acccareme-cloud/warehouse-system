@@ -1,261 +1,421 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-toastify';
-import { 
-  FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaSync, 
-  FaArrowLeft, FaArrowRight, FaExclamationTriangle,
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaIdCard,
-  FaFileInvoiceDollar, FaBalanceScale
-} from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import api from '../services/api';
 
-const Suppliers = () => {
-  const { theme } = useTheme();
-  const { user } = useAuth();
-  const isDark = theme === 'dark';
-
+function Suppliers() {
   const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-
-  const API_URL = import.meta.env.VITE_API_URL;
-
-  // Theme-based colors
-  const colors = {
-    bg: isDark ? 'bg-gray-900' : 'bg-gray-50',
-    card: isDark ? 'bg-gray-800' : 'bg-white',
-    text: isDark ? 'text-gray-100' : 'text-gray-900',
-    textMuted: isDark ? 'text-gray-400' : 'text-gray-500',
-    border: isDark ? 'border-gray-700' : 'border-gray-200',
-    input: isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400',
-    tableHeader: isDark ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-700',
-    tableRow: isDark ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50',
-    buttonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
-    buttonSuccess: 'bg-green-600 hover:bg-green-700 text-white',
-    buttonDanger: 'bg-red-600 hover:bg-red-700 text-white',
-    buttonSecondary: isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-gray-200 hover:bg-gray-300 text-gray-700',
-    status: {
-      active: isDark ? 'bg-green-900/50 text-green-300 border-green-700' : 'bg-green-100 text-green-800 border-green-300',
-      inactive: isDark ? 'bg-red-900/50 text-red-300 border-red-700' : 'bg-red-100 text-red-800 border-red-300',
-    }
-  };
-
-  const fetchSuppliers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_URL}/api/suppliers`, {
-        params: { search: searchTerm, page: currentPage },
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      setSuppliers(response.data.data || []);
-      setTotalPages(response.data.totalPages || 1);
-    } catch (error) {
-      toast.error('فشل في جلب الموردين');
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL, searchTerm, currentPage]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  
+  // Locations
+  const [countries, setCountries] = useState([]);
+  const [governorates, setGovernorates] = useState([]);
+  const [cities, setCities] = useState([]);
+  
+  const [formData, setFormData] = useState({
+    supplier_code: '',
+    supplier_name: '',
+    supplier_type: 'local',
+    is_service_provider: false,
+    tax_number: '',
+    commercial_registration: '',
+    address: '',
+    phone: '',
+    email: '',
+    contact_person: '',
+    credit_limit: 0,
+    country_id: '',
+    governorate_id: '',
+    city_id: '',
+    is_active: true
+  });
+  
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchSuppliers();
-  }, [fetchSuppliers]);
+    fetchCountries();
+  }, []);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف المورد؟')) return;
+  const fetchSuppliers = async () => {
     try {
-      await axios.delete(`${API_URL}/api/suppliers/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      toast.success('تم الحذف بنجاح');
-      fetchSuppliers();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'فشل في الحذف');
+      const response = await api.get('/suppliers');
+      setSuppliers(response.data);
+    } catch (err) {
+      console.error('خطأ في تحميل الموردين');
     }
   };
 
-  const handleView = (supplier) => {
-    setSelectedSupplier(supplier);
-    setShowDetails(true);
+  const fetchCountries = async () => {
+    try {
+      const response = await api.get('/locations/countries');
+      setCountries(response.data);
+    } catch (err) {
+      console.error('خطأ في تحميل الدول');
+    }
+  };
+
+  const fetchGovernorates = async (countryId) => {
+    if (!countryId) {
+      setGovernorates([]);
+      setCities([]);
+      return;
+    }
+    try {
+      const response = await api.get(`/locations/governorates/${countryId}`);
+      setGovernorates(response.data);
+    } catch (err) {
+      console.error('خطأ في تحميل المحافظات');
+    }
+  };
+
+  const fetchCities = async (governorateId) => {
+    if (!governorateId) {
+      setCities([]);
+      return;
+    }
+    try {
+      const response = await api.get(`/locations/cities/${governorateId}`);
+      setCities(response.data);
+    } catch (err) {
+      console.error('خطأ في تحميل المدن');
+    }
+  };
+
+  const fetchNextCode = async () => {
+    try {
+      const response = await api.get('/suppliers/next-code');
+      setFormData(prev => ({
+        ...prev, 
+        supplier_code: response.data.code || ''
+      }));
+    } catch (err) {
+      console.error('خطأ في توليد الكود:', err);
+      setFormData(prev => ({ ...prev, supplier_code: '' }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await api.put(`/suppliers/${editingId}`, formData);
+        setMessage('تم تعديل المورد بنجاح');
+      } else {
+        await api.post('/suppliers', formData);
+        setMessage('تم اضافة المورد بنجاح');
+      }
+      setShowForm(false);
+      setEditingId(null);
+      resetForm();
+      fetchSuppliers();
+    } catch (err) {
+      setMessage('خطأ: ' + (err.response?.data?.message || 'حدث خطأ'));
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      supplier_code: '',
+      supplier_name: '',
+      supplier_type: 'local',
+      is_service_provider: false,
+      tax_number: '',
+      commercial_registration: '',
+      address: '',
+      phone: '',
+      email: '',
+      contact_person: '',
+      credit_limit: 0,
+      country_id: '',
+      governorate_id: '',
+      city_id: '',
+      is_active: true
+    });
+    setGovernorates([]);
+    setCities([]);
   };
 
   const handleEdit = (supplier) => {
-    setSelectedSupplier(supplier);
-    setShowModal(true);
+    setEditingId(supplier.id);
+    setFormData({
+      supplier_code: supplier.supplier_code || '',
+      supplier_name: supplier.name || '',
+      supplier_type: supplier.supplier_type || 'local',
+      is_service_provider: !!supplier.is_service_provider,
+      tax_number: supplier.tax_number || '',
+      commercial_registration: supplier.commercial_registration || '',
+      address: supplier.address || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      contact_person: supplier.contact_person || '',
+      credit_limit: supplier.credit_limit || 0,
+      country_id: supplier.country_id || '',
+      governorate_id: supplier.governorate_id || '',
+      city_id: supplier.city_id || '',
+      is_active: supplier.is_active !== false
+    });
+    
+    // نحمل المحافظات والمدن لو موجودين
+    if (supplier.country_id) fetchGovernorates(supplier.country_id);
+    if (supplier.governorate_id) fetchCities(supplier.governorate_id);
+    
+    setShowForm(true);
   };
 
-  const handleAdd = () => {
-    setSelectedSupplier(null);
-    setShowModal(true);
+  const handleDelete = async (id) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المورد؟')) return;
+    try {
+      await api.delete(`/suppliers/${id}`);
+      setMessage('تم حذف المورد بنجاح');
+      fetchSuppliers();
+    } catch (err) {
+      setMessage('خطأ في الحذف: ' + (err.response?.data?.message || 'حدث خطأ'));
+    }
   };
 
-  const getStatusBadge = (status) => {
-    const labels = { active: 'نشط', inactive: 'معطل' };
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${colors.status[status] || colors.status.active}`}>
-        {labels[status] || status}
-      </span>
-    );
+  const handleCountryChange = (e) => {
+    const countryId = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      country_id: countryId,
+      governorate_id: '',
+      city_id: ''
+    }));
+    fetchGovernorates(countryId);
+    setCities([]);
   };
 
-  if (loading && suppliers.length === 0) {
-    return (
-      <div className={`flex items-center justify-center h-64 ${colors.bg}`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const handleGovernorateChange = (e) => {
+    const governorateId = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      governorate_id: governorateId,
+      city_id: ''
+    }));
+    fetchCities(governorateId);
+  };
+
+  const safeValue = (val) => val === undefined || val === null ? '' : val;
+
+  const thStyle = { padding: '12px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
 
   return (
-    <div className={`min-h-screen p-6 ${colors.bg} ${colors.text}`}>
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">الموردين</h1>
-          <p className={`text-sm mt-1 ${colors.textMuted}`}>إدارة بيانات الموردين والتعاملات</p>
-        </div>
-        <button
-          onClick={handleAdd}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${colors.buttonPrimary}`}
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <h1>تكويد الموردين</h1>
+      
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <button 
+          onClick={() => window.location.href = '/purchases-module'}
+          style={{ padding: '10px 20px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
-          <FaPlus className="w-4 h-4" />
-          مورد جديد
+          ← رجوع للمشتريات
+        </button>
+        <button 
+          onClick={() => window.location.href = '/dashboard'}
+          style={{ padding: '10px 20px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          🏠 رجوع للرئيسية
         </button>
       </div>
 
-      {/* Filters */}
-      <div className={`${colors.card} rounded-lg shadow-sm p-4 mb-6 border ${colors.border}`}>
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <FaSearch className={`absolute right-3 top-3 w-4 h-4 ${colors.textMuted}`} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="بحث باسم المورد أو الكود..."
-              className={`w-full pr-10 px-4 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-blue-500 ${colors.input}`}
-            />
+      {message && <p style={{ padding: '10px', backgroundColor: message.includes('نجاح') ? '#d4edda' : '#f8d7da', borderRadius: '4px' }}>{message}</p>}
+
+      <div style={{ marginBottom: '20px' }}>
+        <button onClick={() => { 
+          if (showForm) {
+            setShowForm(false);
+            setEditingId(null);
+            resetForm();
+          } else {
+            setShowForm(true);
+            fetchNextCode();
+          }
+        }} style={{ padding: '12px 25px', backgroundColor: showForm ? '#dc3545' : '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
+          {showForm ? '❌ إلغاء' : '➕ مورد جديد'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+          <h3>{editingId ? 'تعديل مورد' : 'مورد جديد'}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+            
+            {/* كود المورد */}
+            <div>
+              <label>كود المورد (تلقائي):</label>
+              <input type="text" value={safeValue(formData.supplier_code)} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
+            </div>
+            
+            {/* اسم المورد */}
+            <div>
+              <label>اسم المورد:</label>
+              <input type="text" value={safeValue(formData.supplier_name)} onChange={(e) => setFormData({...formData, supplier_name: e.target.value})} required style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* نوع المورد */}
+            <div>
+              <label>نوع المورد:</label>
+              <select value={safeValue(formData.supplier_type)} onChange={(e) => setFormData({...formData, supplier_type: e.target.value})} style={{ width: '100%', padding: '8px' }}>
+                <option value="local">محلي</option>
+                <option value="import">استيراد</option>
+                <option value="both">كلاهما</option>
+              </select>
+            </div>
+
+            {/* مورد خدمة */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '22px' }}>
+              <input type="checkbox" id="is_service_provider" checked={!!formData.is_service_provider} onChange={(e) => setFormData({...formData, is_service_provider: e.target.checked})} />
+              <label htmlFor="is_service_provider">🏭 مورد خدمة (زي مخلص جمركي) — يظهر في قوائم عهد الخدمة</label>
+            </div>
+            
+            {/* الدولة */}
+            <div>
+              <label>الدولة:</label>
+              <select value={safeValue(formData.country_id)} onChange={handleCountryChange} style={{ width: '100%', padding: '8px' }}>
+                <option value="">اختر الدولة</option>
+                {countries.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* المحافظة */}
+            <div>
+              <label>المحافظة:</label>
+              <select value={safeValue(formData.governorate_id)} onChange={handleGovernorateChange} style={{ width: '100%', padding: '8px' }}>
+                <option value="">اختر المحافظة</option>
+                {governorates.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* المدينة/المنطقة */}
+            <div>
+              <label>المدينة / المنطقة:</label>
+              <select value={safeValue(formData.city_id)} onChange={(e) => setFormData({...formData, city_id: e.target.value})} style={{ width: '100%', padding: '8px' }}>
+                <option value="">اختر المدينة</option>
+                {cities.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} {c.area ? `- ${c.area}` : ''}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* الرقم الضريبي */}
+            <div>
+              <label>الرقم الضريبي:</label>
+              <input type="text" value={safeValue(formData.tax_number)} onChange={(e) => setFormData({...formData, tax_number: e.target.value})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* السجل التجاري */}
+            <div>
+              <label>السجل التجاري:</label>
+              <input type="text" value={safeValue(formData.commercial_registration)} onChange={(e) => setFormData({...formData, commercial_registration: e.target.value})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* العنوان */}
+            <div>
+              <label>العنوان التفصيلي:</label>
+              <input type="text" value={safeValue(formData.address)} onChange={(e) => setFormData({...formData, address: e.target.value})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* التليفون */}
+            <div>
+              <label>التليفون:</label>
+              <input type="text" value={safeValue(formData.phone)} onChange={(e) => setFormData({...formData, phone: e.target.value})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* البريد */}
+            <div>
+              <label>البريد الإلكتروني:</label>
+              <input type="email" value={safeValue(formData.email)} onChange={(e) => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* الشخص المسؤول */}
+            <div>
+              <label>الشخص المسؤول:</label>
+              <input type="text" value={safeValue(formData.contact_person)} onChange={(e) => setFormData({...formData, contact_person: e.target.value})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* حد الائتمان */}
+            <div>
+              <label>حد الائتمان:</label>
+              <input type="number" value={formData.credit_limit || 0} onChange={(e) => setFormData({...formData, credit_limit: parseFloat(e.target.value) || 0})} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            
+            {/* الحالة (في التعديل بس) */}
+            {editingId && (
+              <div>
+                <label>الحالة:</label>
+                <select value={formData.is_active ? 'true' : 'false'} onChange={(e) => setFormData({...formData, is_active: e.target.value === 'true'})} style={{ width: '100%', padding: '8px' }}>
+                  <option value="true">نشط</option>
+                  <option value="false">غير نشط</option>
+                </select>
+              </div>
+            )}
           </div>
-          <button
-            onClick={fetchSuppliers}
-            className={`p-2 rounded-lg border transition-colors ${colors.buttonSecondary}`}
-            title="تحديث"
-          >
-            <FaSync className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          
+          <button type="submit" style={{ marginTop: '15px', padding: '12px 40px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
+            💾 {editingId ? 'تحديث المورد' : 'حفظ المورد'}
           </button>
-        </div>
-      </div>
+        </form>
+      )}
 
-      {/* Table */}
-      <div className={`${colors.card} rounded-lg shadow-sm overflow-hidden border ${colors.border}`}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className={colors.tableHeader}>
-                <th className="px-4 py-3 text-right text-sm font-semibold">#</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">الكود</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">الاسم</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">النوع</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">الهاتف</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">الرصيد</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">الحالة</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">الإجراءات</th>
+      <h3>قائمة الموردين</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#dc2626', color: 'white' }}>
+            <th style={thStyle}>الكود</th>
+            <th style={thStyle}>الاسم</th>
+            <th style={thStyle}>النوع</th>
+            <th style={thStyle}>التليفون</th>
+            <th style={thStyle}>الرقم الضريبي</th>
+            <th style={thStyle}>حد الائتمان</th>
+            <th style={thStyle}>الرصيد</th>
+            <th style={thStyle}>الحالة</th>
+            <th style={thStyle}>تعديل</th>
+            <th style={thStyle}>حذف</th>
+          </tr>
+        </thead>
+        <tbody>
+          {suppliers.length === 0 ? (
+            <tr><td colSpan="10" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد موردين</td></tr>
+          ) : (
+            suppliers.map(s => (
+              <tr key={s.id} style={{ backgroundColor: s.id % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                <td style={tdStyle}><strong>{s.supplier_code}</strong></td>
+                <td style={tdStyle}>{s.name}</td>
+                <td style={tdStyle}>
+                  {s.supplier_type === 'local' && <span style={{ color: '#0d9488' }}>محلي</span>}
+                  {s.supplier_type === 'import' && <span style={{ color: '#92400e' }}>استيراد</span>}
+                  {s.supplier_type === 'both' && <span style={{ color: '#7c3aed' }}>كلاهما</span>}
+                  {s.is_service_provider && <div><span style={{ color: '#be185d', fontSize: '12px' }}>🏭 مورد خدمة</span></div>}
+                </td>
+                <td style={tdStyle}>{s.phone || '-'}</td>
+                <td style={tdStyle}>{s.tax_number || '-'}</td>
+                <td style={tdStyle}>{s.credit_limit} ج.م</td>
+                <td style={tdStyle}><strong style={{ color: (s.balance || 0) >= 0 ? '#dc2626' : '#28a745' }}>{s.balance || 0} ج.م</strong></td>
+                <td style={tdStyle}>
+                  {s.is_active !== false ? <span style={{ color: '#28a745' }}>نشط</span> : <span style={{ color: '#ffc107' }}>غير نشط</span>}
+                </td>
+                <td style={tdStyle}>
+                  <button onClick={() => handleEdit(s)} style={{ padding: '5px 10px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                    ✏️ تعديل
+                  </button>
+                </td>
+                <td style={tdStyle}>
+                  <button onClick={() => handleDelete(s.id)} style={{ padding: '5px 10px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                    🗑️ حذف
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {suppliers.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center">
-                    <div className={`flex flex-col items-center gap-2 ${colors.textMuted}`}>
-                      <FaExclamationTriangle className="w-8 h-8" />
-                      <p>لا يوجد موردين</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                suppliers.map((supplier, index) => (
-                  <tr key={supplier.id} className={`border-t ${colors.tableRow} transition-colors`}>
-                    <td className="px-4 py-3 text-sm">{(currentPage - 1) * 20 + index + 1}</td>
-                    <td className="px-4 py-3 font-mono text-sm font-medium">{supplier.code}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{supplier.name}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-0.5 rounded text-xs ${
-                        supplier.type === 'local' 
-                          ? (isDark ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700')
-                          : (isDark ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-50 text-purple-700')
-                      }`}>
-                        {supplier.type === 'local' ? 'محلي' : 'أجنبي'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">{supplier.phone || '-'}</td>
-                    <td className="px-4 py-3 text-sm font-mono">
-                      <span className={parseFloat(supplier.balance || 0) > 0 ? 'text-red-500' : 'text-green-500'}>
-                        {parseFloat(supplier.balance || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 })} ج.م
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{getStatusBadge(supplier.status)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleView(supplier)}
-                          className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
-                          title="عرض"
-                        >
-                          <FaEye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(supplier)}
-                          className="p-1.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 transition-colors"
-                          title="تعديل"
-                        >
-                          <FaEdit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(supplier.id)}
-                          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                          title="حذف"
-                        >
-                          <FaTrash className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className={`flex justify-center items-center gap-2 p-4 border-t ${colors.border}`}>
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className={`p-2 rounded-lg disabled:opacity-50 ${colors.buttonSecondary}`}
-            >
-              <FaArrowRight className="w-4 h-4" />
-            </button>
-            <span className={`text-sm ${colors.textMuted}`}>
-              صفحة {currentPage} من {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className={`p-2 rounded-lg disabled:opacity-50 ${colors.buttonSecondary}`}
-            >
-              <FaArrowLeft className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-      </div>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
-};
+}
 
 export default Suppliers;

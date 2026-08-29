@@ -1,118 +1,460 @@
-// 08_taxInvoices_backend.js
-// Backend الفواتير الضريبية المتقدمة
-
 const express = require('express');
 const pool = require('../config/db');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
-// GET /api/tax-invoices - قائمة الفواتير الضريبية
-router.get('/', verifyToken, async (req, res) => {
+// Generate next invoice number
+router.get('/next-number', verifyToken, async (req, res) => {
   try {
-    const { type, is_virtual, status, search } = req.query;
-    let query = `SELECT si.*, c.name as customer_name
-                 FROM sales_invoices si
-                 LEFT JOIN customers c ON si.customer_id = c.id
-                 WHERE si.deleted_at IS NULL`;
-    const params = [];
-    let idx = 1;
+    const result = await pool.query(
+      `SELECT invoice_number FROM tax_invoices 
+       WHERE invoice_number LIKE 'TAX-%' 
+       ORDER BY id DESC LIMIT 1`
+    );
 
-    if (type === 'service') { query += ` AND si.is_service_invoice = TRUE`; }
-    if (is_virtual) { query += ` AND si.is_virtual = $${idx}`; params.push(is_virtual === 'true'); idx++; }
-    if (status) { query += ` AND si.status = $${idx}`; params.push(status); idx++; }
-    if (search) { query += ` AND (si.invoice_number ILIKE $${idx} OR c.name ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+    let nextNumber = 'TAX-0001';
+    if (result.rows.length > 0) {
+      const last = parseInt(result.rows[0].invoice_number.split('-')[1]);
+      nextNumber = `TAX-${String(last + 1).padStart(4, '0')}`;
+    }
 
-    query += ` ORDER BY si.created_at DESC`;
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    res.json({ nextNumber });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 });
 
-// POST /api/tax-invoices - إنشاء فاتورة ضريبية
-router.post('/', verifyToken, async (req, res) => {
+// Create tax invoice
+router.post('/', verifyToken, requireRole('sales', 'admin'), async (req, res) => {
+  const {
+    invoice_number, invoice_date, customer_id, customer_name,
+    items, pricing_sheet_ids, notes, payment_due_date
+  } = req.body;
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { customer_id, invoice_date, items, is_virtual, is_service_invoice, service_period_from, service_period_to, delivery_quote_ids, use_serial } = req.body;
 
-    // توليد السريال الداخلي
-    let internalSerial = null;
-    if (use_serial) {
-      const serialRes = await client.query(`SELECT * FROM generate_tax_serial($1) as serial`, [use_serial]);
-      internalSerial = serialRes.rows[0].serial;
+    // نجيب إعدادات الضريبة
+    const taxResult = await client.query('SELECT * FROM tax_settings ORDER BY id DESC LIMIT 1');
+    const taxSettings = taxResult.rows[0] || { vat_rate: 14.00, withholding_rate: 20.00 };
+
+    // نجيب إعدادات العميل
+    const customerTaxResult = await client.query(
+      'SELECT * FROM customer_tax_settings WHERE customer_id = $1',
+      [customer_id]
+    );
+    const customerTax = customerTaxResult.rows[0] || { has_vat: true, has_withholding: false };
+
+    // نحسب المبالغ
+    let subtotal = 0;
+    for (const item of items) {
+      subtotal += parseFloat(item.quantity) * parseFloat(item.unit_price);
     }
 
-    // رقم الفاتورة
-    const invNum = await client.query(`SELECT COALESCE(MAX(CAST(REGEXP_REPLACE(invoice_number, '[^0-9]', '', 'g') AS INTEGER)), 0) + 1 as next FROM sales_invoices`);
-    const invoice_number = invNum.rows[0].next.toString();
+    const vatRate = customerTax.has_vat ? taxSettings.vat_rate : 0;
+    const vatAmount = subtotal * (vatRate / 100);
 
-    const invoice = await client.query(
-      `INSERT INTO sales_invoices (invoice_number, customer_id, invoice_date, status, is_virtual, is_service_invoice, 
-       service_period_from, service_period_to, delivery_quote_ids, internal_serial_number, created_by)
-       VALUES ($1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [invoice_number, customer_id, invoice_date, is_virtual || false, is_service_invoice || false, 
-       service_period_from, service_period_to, delivery_quote_ids || '{}', internalSerial, req.user.id]);
+    const withholdingRate = customerTax.has_withholding ? taxSettings.withholding_rate : 0;
+    const withholdingAmount = vatAmount * (withholdingRate / 100);
 
-    // إضافة البنود
+    const totalAmount = subtotal + vatAmount - withholdingAmount;
+
+    // ننشئ الفاتورة
+    const invoiceResult = await client.query(
+      `INSERT INTO tax_invoices (
+        invoice_number, invoice_date, customer_id, customer_name,
+        subtotal, vat_rate, vat_amount, withholding_rate, withholding_amount,
+        total_amount, payment_status, remaining_amount, payment_due_date,
+        status, notes, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING *`,
+      [
+        invoice_number, invoice_date, customer_id, customer_name,
+        subtotal, vatRate, vatAmount, withholdingRate, withholdingAmount,
+        totalAmount, 'unpaid', totalAmount, payment_due_date,
+        'draft', notes, req.user.id
+      ]
+    );
+
+    const invoiceId = invoiceResult.rows[0].id;
+
+    // نضيف الأصناف
     for (const item of items) {
       await client.query(
-        `INSERT INTO sales_invoice_items (sales_invoice_id, item_id, quantity, unit_price, item_type, total)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [invoice.rows[0].id, item.item_id, item.quantity, item.unit_price, item.item_type || 'product', 
-         item.quantity * item.unit_price]);
+        `INSERT INTO tax_invoice_items (
+          invoice_id, item_id, item_name, quantity, unit_price, total_price, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          invoiceId, item.item_id, item.item_name,
+          item.quantity, item.unit_price,
+          item.quantity * item.unit_price, item.notes
+        ]
+      );
+    }
 
-      // لو بضاعة حقيقية - حركة مخزن
-      if (!is_service_invoice && item.item_type !== 'service' && !is_virtual) {
+    // نربط ببيانات التسليم المسعر
+    if (pricing_sheet_ids && pricing_sheet_ids.length > 0) {
+      for (const sheetId of pricing_sheet_ids) {
         await client.query(
-          `INSERT INTO stock_movements (item_id, quantity, movement_type, reference_type, reference_id, is_tax_virtual)
-           VALUES ($1, $2, 'sale', 'sales_invoice', $3, $4)`,
-          [item.item_id, -item.quantity, invoice.rows[0].id, is_virtual || false]);
-      }
-      // لو وهمية - حركة مخزن ضريبي
-      else if (is_virtual && item.item_type !== 'service') {
+          `INSERT INTO tax_invoice_pricing_links (invoice_id, pricing_sheet_id)
+           VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+          [invoiceId, sheetId]
+        );
+
+        // نحدث حالة بيان التسليم
         await client.query(
-          `INSERT INTO stock_movements (item_id, quantity, movement_type, reference_type, reference_id, is_tax_virtual)
-           VALUES ($1, $2, 'tax_sale', 'sales_invoice', $3, TRUE)`,
-          [item.item_id, -item.quantity, invoice.rows[0].id]);
+          `UPDATE pricing_sheets SET status = 'linked_to_invoice', updated_at = NOW()
+           WHERE id = $1`,
+          [sheetId]
+        );
       }
     }
 
-    // تحديث السريال
-    if (internalSerial) {
-      await client.query(`SELECT use_tax_serial($1, $2)`, [internalSerial, invoice.rows[0].id]);
+    // نضيف في دفتر أستاذ العميل
+    await client.query(
+      `INSERT INTO customer_ledger (
+        customer_id, transaction_date, transaction_type, reference_type,
+        reference_id, reference_number, debit, balance, notes, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9)`,
+      [
+        customer_id, invoice_date, 'فاتورة ضريبية', 'tax_invoice',
+        invoiceId, invoice_number, totalAmount, 'فاتورة ضريبية جديدة', req.user.id
+      ]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      message: 'تم إنشاء الفاتورة الضريبية بنجاح',
+      data: invoiceResult.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Get all tax invoices
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT ti.*, c.name as customer_name_display, c.code as customer_code,
+        u.full_name as created_by_name,
+        (SELECT COUNT(*) FROM tax_invoice_items WHERE invoice_id = ti.id) as items_count,
+        (SELECT COUNT(*) FROM tax_invoice_pricing_links WHERE invoice_id = ti.id) as linked_sheets_count
+       FROM tax_invoices ti
+       LEFT JOIN customers c ON ti.customer_id = c.id
+       LEFT JOIN users u ON ti.created_by = u.id
+       ORDER BY ti.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Get tax invoice by ID
+router.get('/:id', verifyToken, async (req, res) => {
+  try {
+    const invoiceResult = await pool.query(
+      `SELECT ti.*, c.name as customer_name_display, c.code as customer_code,
+        u.full_name as created_by_name
+       FROM tax_invoices ti
+       LEFT JOIN customers c ON ti.customer_id = c.id
+       LEFT JOIN users u ON ti.created_by = u.id
+       WHERE ti.id = $1`,
+      [req.params.id]
+    );
+
+    if (invoiceResult.rows.length === 0) {
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    const itemsResult = await pool.query(
+      `SELECT * FROM tax_invoice_items WHERE invoice_id = $1 ORDER BY id`,
+      [req.params.id]
+    );
+
+    const linksResult = await pool.query(
+      `SELECT ps.* FROM pricing_sheets ps
+       JOIN tax_invoice_pricing_links tipl ON ps.id = tipl.pricing_sheet_id
+       WHERE tipl.invoice_id = $1`,
+      [req.params.id]
+    );
+
+    res.json({
+      ...invoiceResult.rows[0],
+      items: itemsResult.rows,
+      linked_sheets: linksResult.rows
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Update tax invoice (draft only)
+router.put('/:id', verifyToken, requireRole('sales', 'admin'), async (req, res) => {
+  const { id } = req.params;
+  const { invoice_date, customer_id, customer_name, items, pricing_sheet_ids, notes, payment_due_date } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // نجيب إعدادات الضريبة
+    const taxResult = await client.query('SELECT * FROM tax_settings ORDER BY id DESC LIMIT 1');
+    const taxSettings = taxResult.rows[0] || { vat_rate: 14.00, withholding_rate: 20.00 };
+
+    // نجيب إعدادات العميل
+    const customerTaxResult = await client.query(
+      'SELECT * FROM customer_tax_settings WHERE customer_id = $1',
+      [customer_id]
+    );
+    const customerTax = customerTaxResult.rows[0] || { has_vat: true, has_withholding: false };
+
+    // نحسب المبالغ
+    let subtotal = 0;
+    for (const item of items) {
+      subtotal += parseFloat(item.quantity) * parseFloat(item.unit_price);
+    }
+
+    const vatRate = customerTax.has_vat ? taxSettings.vat_rate : 0;
+    const vatAmount = subtotal * (vatRate / 100);
+
+    const withholdingRate = customerTax.has_withholding ? taxSettings.withholding_rate : 0;
+    const withholdingAmount = vatAmount * (withholdingRate / 100);
+
+    const totalAmount = subtotal + vatAmount - withholdingAmount;
+
+    const result = await client.query(
+      `UPDATE tax_invoices 
+       SET invoice_date = $1, customer_id = $2, customer_name = $3,
+           subtotal = $4, vat_rate = $5, vat_amount = $6,
+           withholding_rate = $7, withholding_amount = $8,
+           total_amount = $9, remaining_amount = $9, payment_due_date = $10,
+           notes = $11, updated_at = NOW()
+       WHERE id = $12 AND status = 'draft'
+       RETURNING *`,
+      [
+        invoice_date, customer_id, customer_name,
+        subtotal, vatRate, vatAmount,
+        withholdingRate, withholdingAmount,
+        totalAmount, payment_due_date, notes, id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة أو تم اعتمادها' });
+    }
+
+    // نحذف الأصناف القديمة ونضيف الجديدة
+    await client.query('DELETE FROM tax_invoice_items WHERE invoice_id = $1', [id]);
+
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO tax_invoice_items (
+          invoice_id, item_id, item_name, quantity, unit_price, total_price, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          id, item.item_id, item.item_name,
+          item.quantity, item.unit_price,
+          item.quantity * item.unit_price, item.notes
+        ]
+      );
+    }
+
+    // نحدث الربط ببيانات التسليم
+    await client.query('DELETE FROM tax_invoice_pricing_links WHERE invoice_id = $1', [id]);
+
+    if (pricing_sheet_ids && pricing_sheet_ids.length > 0) {
+      for (const sheetId of pricing_sheet_ids) {
+        await client.query(
+          `INSERT INTO tax_invoice_pricing_links (invoice_id, pricing_sheet_id)
+           VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+          [id, sheetId]
+        );
+      }
     }
 
     await client.query('COMMIT');
-    res.status(201).json(invoice.rows[0]);
-  } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ message: err.message }); }
-  finally { client.release(); }
+    res.json({ message: 'تم تحديث الفاتورة بنجاح', data: result.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
-// POST /api/tax-invoices/reserve-serial - حجز رقم
-router.post('/reserve-serial', verifyToken, async (req, res) => {
+// Update platform link
+router.put('/:id/platform-link', verifyToken, requireRole('sales', 'admin'), async (req, res) => {
+  const { platform_number } = req.body;
+
   try {
-    const { serial_number } = req.body;
-    const result = await pool.query(`SELECT reserve_tax_serial($1, $2) as success`, [serial_number, req.user.id]);
-    if (result.rows[0].success) res.json({ message: 'تم الحجز بنجاح' });
-    else res.status(400).json({ message: 'الرقم غير متاح' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    const result = await pool.query(
+      `UPDATE tax_invoices 
+       SET platform_number = $1, linked_to_platform = true, linked_to_platform_date = CURRENT_DATE,
+           updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [platform_number, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    res.json({ message: 'تم ربط الفاتورة بالمنصة بنجاح', data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 });
 
-// POST /api/tax-invoices/skip-serial - تخطي رقم
-router.post('/skip-serial', verifyToken, async (req, res) => {
+// Update payment status
+router.put('/:id/payment', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
+  const { paid_amount, payment_date } = req.body;
+
+  const client = await pool.connect();
   try {
-    const { serial_number } = req.body;
-    await pool.query(`SELECT skip_tax_serial($1)`, [serial_number]);
-    res.json({ message: 'تم التخطي بنجاح' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    await client.query('BEGIN');
+
+    const invoiceResult = await pool.query(
+      'SELECT * FROM tax_invoices WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (invoiceResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    const invoice = invoiceResult.rows[0];
+    const newPaidAmount = parseFloat(invoice.paid_amount || 0) + parseFloat(paid_amount);
+    const remainingAmount = parseFloat(invoice.total_amount) - newPaidAmount;
+
+    let paymentStatus = 'unpaid';
+    if (remainingAmount <= 0) paymentStatus = 'paid';
+    else if (newPaidAmount > 0) paymentStatus = 'partial';
+
+    const result = await client.query(
+      `UPDATE tax_invoices 
+       SET paid_amount = $1, remaining_amount = $2, payment_status = $3, updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [newPaidAmount, remainingAmount, paymentStatus, req.params.id]
+    );
+
+    // نضيف في دفتر أستاذ العميل
+    await client.query(
+      `INSERT INTO customer_ledger (
+        customer_id, transaction_date, transaction_type, reference_type,
+        reference_id, reference_number, credit, balance, notes, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        invoice.customer_id, payment_date || new Date(), 'تحصيل', 'tax_invoice_payment',
+        invoice.id, invoice.invoice_number, paid_amount, remainingAmount,
+        'تحصيل فاتورة ضريبية', req.user.id
+      ]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'تم تسجيل التحصيل بنجاح', data: result.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
-// GET /api/tax-invoices/serials - قائمة السريالات
-router.get('/serials', verifyToken, async (req, res) => {
+// Update deduction certificate status
+router.put('/:id/deduction', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
+  const { status, certificate_number, certificate_date, certificate_amount } = req.body;
+
   try {
-    const result = await pool.query(`SELECT * FROM tax_invoice_serials WHERE deleted_at IS NULL ORDER BY serial_number DESC LIMIT 100`);
-    res.json(result.rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    const result = await pool.query(
+      `UPDATE tax_invoices 
+       SET deduction_certificate_status = $1, deduction_certificate_number = $2,
+           deduction_certificate_date = $3, deduction_certificate_amount = $4,
+           updated_at = NOW()
+       WHERE id = $5
+       RETURNING *`,
+      [status, certificate_number, certificate_date, certificate_amount, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'الفاتورة غير موجودة' });
+    }
+
+    res.json({ message: 'تم تحديث بيان الاستقطاع بنجاح', data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Manager approval
+router.put('/:id/manager-approve', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE tax_invoices 
+       SET status = 'approved_manager', updated_at = NOW()
+       WHERE id = $1 AND status = 'draft'
+       RETURNING *`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: 'الفاتورة غير موجودة أو تم اعتمادها' });
+    }
+
+    res.json({ message: 'تم اعتماد الفاتورة من المدير', data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Finance approval
+router.put('/:id/finance-approve', verifyToken, requireRole('finance', 'admin'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE tax_invoices 
+       SET status = 'approved_finance', updated_at = NOW()
+       WHERE id = $1 AND status = 'approved_manager'
+       RETURNING *`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: 'الفاتورة غير موجودة أو لم يتم اعتمادها من المدير' });
+    }
+
+    res.json({ message: 'تم اعتماد الفاتورة من المالية', data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Delete tax invoice (draft only)
+router.delete('/:id', verifyToken, requireRole('sales', 'admin'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM tax_invoices WHERE id = $1 AND status = 'draft' RETURNING *",
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: 'لا يمكن حذف الفاتورة المعتمدة' });
+    }
+
+    res.json({ message: 'تم الحذف بنجاح' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 });
 
 module.exports = router;

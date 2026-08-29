@@ -107,9 +107,6 @@ app.use('/api/sales-invoices', salesInvoiceRoutes);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/units', unitsRouter);
 app.use('/api/shipments', shipmentsRoutes);  // ✅ صح
-app.use('/api/currencies', require('./routes/currencies'));
-app.use('/api/supplier-payments', require('./routes/supplierPayments'));
-app.use('/api/inventory-reports', require('./routes/inventoryReports'));
 
 
 // API Routes جديدة للمبيعات

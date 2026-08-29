@@ -1,37 +1,40 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || saved === 'light') return saved;
-    // توافق مع القيمة القديمة (darkMode: true/false) لو موجودة من نسخة سابقة
-    const legacy = localStorage.getItem('darkMode');
-    if (legacy) return JSON.parse(legacy) ? 'dark' : 'light';
-    return 'light';
+    return localStorage.getItem('app-theme') || 'dark';
   });
 
-  const isDark = theme === 'dark';
-
   useEffect(() => {
-    localStorage.setItem('theme', theme);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
+    localStorage.setItem('app-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    // تطبيق الـ theme على كل الـ body
+    if (theme === 'dark') {
+      document.body.style.backgroundColor = '#0f172a';
+      document.body.style.color = '#f1f5f9';
     } else {
-      document.documentElement.classList.remove('dark');
+      document.body.style.backgroundColor = '#f8fafc';
+      document.body.style.color = '#1e293b';
     }
-  }, [theme, isDark]);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const setDark = () => setTheme('dark');
   const setLight = () => setTheme('light');
-  const toggleTheme = () => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, setDark, setLight, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setDark, setLight }}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-export const useTheme = () => useContext(ThemeContext);
+export function useTheme() {
+  return useContext(ThemeContext);
+}

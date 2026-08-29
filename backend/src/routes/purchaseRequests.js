@@ -3,252 +3,576 @@ const pool = require('../config/db');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
-// ═══════════════════════════════════════════════════════════════
-// PURCHASE REQUESTS API (محدث - مع exchange_rate)
-// ═══════════════════════════════════════════════════════════════
-
-// GET /purchase-requests/next-number
-router.get('/next-number', verifyToken, async (req, res) => {
+// توليد رقم طلب شراء تلقائي
+router.get('/next-number', async (req, res) => {
   try {
-    const year = req.query.year || new Date().getFullYear();
-    const gapResult = await pool.query(
-      `SELECT t1.request_number + 1 as next_num
-       FROM purchase_requests t1
-       WHERE t1.request_year = $1
-         AND t1.status != 'cancelled'
-         AND NOT EXISTS (
-           SELECT 1 FROM purchase_requests t2 
-           WHERE t2.request_number = t1.request_number + 1 
-           AND t2.request_year = $1
-           AND t2.status != 'cancelled'
-         )
-       ORDER BY t1.request_number
-       LIMIT 1`,
-      [year]
+    const result = await pool.query(
+      `SELECT request_number FROM purchase_requests 
+       WHERE request_number LIKE 'PRQ-%'
+       ORDER BY id DESC LIMIT 1`
     );
-    if (gapResult.rows.length > 0 && gapResult.rows[0].next_num > 0) {
-      return res.json({ nextNumber: gapResult.rows[0].next_num });
+
+    let nextNumber = 'PRQ-0001';
+    if (result.rows.length > 0) {
+      const last = result.rows[0].request_number;
+      const match = last.match(/PRQ-(\d+)/);
+      if (match) {
+        const lastNum = parseInt(match[1]);
+        nextNumber = `PRQ-${String(lastNum + 1).padStart(4, '0')}`;
+      }
     }
-    const maxResult = await pool.query(
-      `SELECT COALESCE(MAX(request_number), 0) + 1 as next_num 
-       FROM purchase_requests 
-       WHERE request_year = $1 AND status != 'cancelled'`,
-      [year]
-    );
-    res.json({ nextNumber: maxResult.rows[0].next_num });
+
+    res.json({ nextNumber });
   } catch (err) {
-    console.error('[GET /next-number] Error:', err);
+    console.error('Error generating next number:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// GET /purchase-requests
-router.get('/', verifyToken, async (req, res) => {
-  const { year, status, department, requester } = req.query;
-  try {
-    let query = `
-      SELECT pr.*, d.name as department_name, u.full_name as requester_name, c.name as currency_name
-      FROM purchase_requests pr
-      LEFT JOIN departments d ON pr.department_id = d.id
-      LEFT JOIN users u ON pr.requested_by = u.id
-      LEFT JOIN currencies c ON pr.currency_id = c.id
-      WHERE pr.status != 'cancelled'
-    `;
-    const params = [];
-    if (year) { params.push(year); query += ` AND pr.request_year = $${params.length}`; }
-    if (status) { params.push(status); query += ` AND pr.status = $${params.length}`; }
-    if (department) { params.push(department); query += ` AND pr.department_id = $${params.length}`; }
-    if (requester) { params.push(requester); query += ` AND pr.requested_by = $${params.length}`; }
-    query += ` ORDER BY pr.request_year DESC, pr.request_number DESC`;
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('[GET /purchase-requests] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// GET /purchase-requests/:id
-router.get('/:id', verifyToken, async (req, res) => {
-  try {
-    const requestResult = await pool.query(
-      `SELECT pr.*, d.name as department_name, u.full_name as requester_name, c.name as currency_name, c.code as currency_code, c.exchange_rate as currency_exchange_rate
-      FROM purchase_requests pr
-      LEFT JOIN departments d ON pr.department_id = d.id
-      LEFT JOIN users u ON pr.requested_by = u.id
-      LEFT JOIN currencies c ON pr.currency_id = c.id
-      WHERE pr.id = $1`, [req.params.id]
-    );
-    if (requestResult.rows.length === 0) return res.status(404).json({ message: 'طلب الشراء غير موجود' });
-    const request = requestResult.rows[0];
-
-    const itemsResult = await pool.query(
-      `SELECT pri.*, i.name as item_name, i.code as item_code, i.unit_of_measure, i.is_vat_exempt, i.is_profit_tax_exempt
-      FROM purchase_request_items pri
-      LEFT JOIN items i ON pri.item_id = i.id
-      WHERE pri.purchase_request_id = $1`, [req.params.id]
-    );
-
-    res.json({ ...request, items: itemsResult.rows });
-  } catch (err) {
-    console.error('[GET /purchase-requests/:id] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /purchase-requests
+// إنشاء طلب شراء جديد (متعدد الأصناف + عملات)
 router.post('/', verifyToken, async (req, res) => {
-  const { request_number, request_year, department_id, requested_by, request_date, required_date, priority, notes, currency_id, exchange_rate, items } = req.body;
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ message: 'يجب إضافة بنود للطلب' });
-  }
+  const { 
+    request_number, 
+    department, 
+    warehouse_id, 
+    currency, 
+    exchange_rate, 
+    notes, 
+    items,
+    total_usd,
+    total_egp 
+  } = req.body;
+
   const client = await pool.connect();
+
   try {
     await client.query('BEGIN');
 
-    // جيب معامل التحويل من العملة لو مش مدخل
-    let finalExchangeRate = exchange_rate;
-    if (!finalExchangeRate && currency_id) {
-      const currencyResult = await client.query(`SELECT exchange_rate FROM currencies WHERE id = $1`, [currency_id]);
-      if (currencyResult.rows.length > 0) {
-        finalExchangeRate = currencyResult.rows[0].exchange_rate;
-      }
-    }
-    if (!finalExchangeRate) finalExchangeRate = 1;
-
+    // 1. نحفظ الطلب الرئيسي
     const requestResult = await client.query(
-      `INSERT INTO purchase_requests (request_number, request_year, department_id, requested_by, request_date, required_date, priority, status, notes, currency_id, exchange_rate, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11) RETURNING *`,
-      [request_number, request_year || new Date().getFullYear(), department_id || null, requested_by || req.user.id, request_date || new Date(), required_date || null, priority || 'normal', notes || null, currency_id || null, finalExchangeRate, req.user.id]
+      `INSERT INTO purchase_requests 
+       (request_number, request_date, department, requested_by, warehouse_id, 
+        currency, exchange_rate, total_usd, total_egp, notes, status)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING *`,
+      [
+        request_number, 
+        department, 
+        req.user.id, 
+        warehouse_id || null,
+        currency || 'USD',
+        parseFloat(exchange_rate) || 1,
+        parseFloat(total_usd) || 0,
+        parseFloat(total_egp) || 0,
+        notes || '',
+        'pending'
+      ]
     );
+
     const requestId = requestResult.rows[0].id;
 
-    let totalAmount = 0;
-    for (const item of items) {
-      const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.estimated_price) || 0);
-      totalAmount += itemTotal;
+    // 2. نحفظ الأصناف في الجدول الفرعي
+    if (items && items.length > 0) {
+      for (const item of items) {
+        if (!item.item_id) continue;
+
+        const qty = parseFloat(item.quantity) || 0;
+        const unitPriceUsd = parseFloat(item.unit_price_usd) || 0;
+        const unitPriceEgp = parseFloat(item.unit_price_egp) || 0;
+        const itemTotalUsd = qty * unitPriceUsd;
+        const itemTotalEgp = qty * unitPriceEgp;
+
+        await client.query(
+          `INSERT INTO purchase_request_items 
+           (purchase_request_id, item_id, quantity, unit, 
+            unit_price_usd, unit_price_egp, total_usd, total_egp, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            requestId,
+            item.item_id,
+            qty,
+            item.unit || 'عدد',
+            unitPriceUsd,
+            unitPriceEgp,
+            itemTotalUsd,
+            itemTotalEgp,
+            item.notes || ''
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'تم إنشاء طلب الشراء بنجاح',
+      data: requestResult.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating purchase request:', err);
+
+    if (err.code === '23505') {
+      return res.status(400).json({ 
+        message: 'رقم الطلب موجود مسبقاً، يرجى تحديث الصفحة' 
+      });
+    }
+
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// DUPLICATE — تكرار طلب شراء
+router.post('/:id/duplicate', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const original = await client.query('SELECT * FROM purchase_requests WHERE id = $1', [id]);
+    if (original.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'طلب الشراء غير موجود' });
+    }
+
+    const p = original.rows[0];
+
+    // توليد رقم جديد
+    const lastResult = await client.query(
+      `SELECT request_number FROM purchase_requests WHERE request_number LIKE 'PRQ-%' ORDER BY id DESC LIMIT 1`
+    );
+    let nextNumber = 'PRQ-0001';
+    if (lastResult.rows.length > 0) {
+      const last = lastResult.rows[0].request_number;
+      const match = last.match(/PRQ-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1]) + 1;
+        nextNumber = `PRQ-${String(num).padStart(4, '0')}`;
+      }
+    }
+
+    // إنشاء طلب جديد
+    const result = await client.query(
+      `INSERT INTO purchase_requests 
+       (request_number, request_date, department, requested_by, warehouse_id, 
+        currency, exchange_rate, total_usd, total_egp, notes, status)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING *`,
+      [
+        nextNumber, 
+        p.department, 
+        req.user.id, 
+        p.warehouse_id,
+        p.currency || 'USD',
+        parseFloat(p.exchange_rate) || 1,
+        parseFloat(p.total_usd) || 0,
+        parseFloat(p.total_egp) || 0,
+        `نسخة من ${p.request_number}`,
+        'pending'
+      ]
+    );
+
+    const newId = result.rows[0].id;
+
+    // نسخ الأصناف
+    const itemsResult = await client.query(
+      'SELECT * FROM purchase_request_items WHERE purchase_request_id = $1',
+      [id]
+    );
+    for (const item of itemsResult.rows) {
       await client.query(
-        `INSERT INTO purchase_request_items (purchase_request_id, item_id, quantity, unit_of_measure, estimated_price, total_price, notes, is_vat_exempt, is_profit_tax_exempt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [requestId, item.item_id, item.quantity, item.unit_of_measure || null, item.estimated_price || 0, itemTotal, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false]
+        `INSERT INTO purchase_request_items 
+         (purchase_request_id, item_id, quantity, unit, 
+          unit_price_usd, unit_price_egp, total_usd, total_egp, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          newId,
+          item.item_id,
+          item.quantity,
+          item.unit || 'عدد',
+          item.unit_price_usd,
+          item.unit_price_egp,
+          item.total_usd,
+          item.total_egp,
+          item.notes
+        ]
       );
     }
 
-    await client.query(`UPDATE purchase_requests SET total_amount = $1 WHERE id = $2`, [totalAmount, requestId]);
     await client.query('COMMIT');
-    res.status(201).json({ message: 'تم إنشاء طلب الشراء بنجاح', data: { ...requestResult.rows[0], total_amount: totalAmount } });
+
+    res.status(201).json({
+      message: `تم تكرار طلب الشراء بنجاح برقم ${nextNumber}`,
+      data: result.rows[0]
+    });
+
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[POST /purchase-requests] Error:', err);
+    console.error('Duplicate error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// PUT /purchase-requests/:id
-router.put('/:id', verifyToken, async (req, res) => {
-  const { department_id, requested_by, request_date, required_date, priority, notes, currency_id, exchange_rate, items } = req.body;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const requestResult = await client.query(`SELECT status FROM purchase_requests WHERE id = $1`, [req.params.id]);
-    if (requestResult.rows.length === 0) throw new Error('طلب الشراء غير موجود');
-    if (requestResult.rows[0].status !== 'pending') throw new Error('لا يمكن تعديل طلب غير معلق');
-
-    let finalExchangeRate = exchange_rate;
-    if (!finalExchangeRate && currency_id) {
-      const currencyResult = await client.query(`SELECT exchange_rate FROM currencies WHERE id = $1`, [currency_id]);
-      if (currencyResult.rows.length > 0) finalExchangeRate = currencyResult.rows[0].exchange_rate;
-    }
-
-    await client.query(
-      `UPDATE purchase_requests SET department_id = $1, requested_by = $2, request_date = $3, required_date = $4, priority = $5, notes = $6, currency_id = $7, exchange_rate = $8, updated_at = NOW() WHERE id = $9`,
-      [department_id || null, requested_by || req.user.id, request_date || new Date(), required_date || null, priority || 'normal', notes || null, currency_id || null, finalExchangeRate || 1, req.params.id]
-    );
-
-    if (items && Array.isArray(items)) {
-      await client.query(`DELETE FROM purchase_request_items WHERE purchase_request_id = $1`, [req.params.id]);
-      let totalAmount = 0;
-      for (const item of items) {
-        const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.estimated_price) || 0);
-        totalAmount += itemTotal;
-        await client.query(
-          `INSERT INTO purchase_request_items (purchase_request_id, item_id, quantity, unit_of_measure, estimated_price, total_price, notes, is_vat_exempt, is_profit_tax_exempt)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [req.params.id, item.item_id, item.quantity, item.unit_of_measure || null, item.estimated_price || 0, itemTotal, item.notes || null, item.is_vat_exempt || false, item.is_profit_tax_exempt || false]
-        );
-      }
-      await client.query(`UPDATE purchase_requests SET total_amount = $1 WHERE id = $2`, [totalAmount, req.params.id]);
-    }
-
-    await client.query('COMMIT');
-    res.json({ message: 'تم تحديث طلب الشراء' });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[PUT /purchase-requests/:id] Error:', err);
-    res.status(500).json({ message: err.message || 'Server error', error: err.message });
-  } finally { client.release(); }
-});
-
-// DELETE /purchase-requests/:id
-router.delete('/:id', verifyToken, async (req, res) => {
-  try {
-    const checkResult = await pool.query(`SELECT status FROM purchase_requests WHERE id = $1`, [req.params.id]);
-    if (checkResult.rows.length === 0) return res.status(404).json({ message: 'طلب الشراء غير موجود' });
-    if (checkResult.rows[0].status !== 'pending') return res.status(400).json({ message: 'لا يمكن حذف طلب غير معلق' });
-    await pool.query(`DELETE FROM purchase_requests WHERE id = $1`, [req.params.id]);
-    res.json({ message: 'تم حذف طلب الشراء' });
-  } catch (err) {
-    console.error('[DELETE /purchase-requests/:id] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
   }
 });
 
-// PUT /purchase-requests/:id/approve
-router.put('/:id/approve', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
+// جلب طلبات الشراء المعلقة
+router.get('/pending', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `UPDATE purchase_requests SET status = 'approved', approved_by = $1, approved_at = NOW(), updated_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING *`,
-      [req.user.id, req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(400).json({ message: 'لا يمكن اعتماد الطلب' });
-    res.json({ message: 'تم اعتماد طلب الشراء', data: result.rows[0] });
-  } catch (err) {
-    console.error('[PUT /purchase-requests/:id/approve] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// PUT /purchase-requests/:id/reject
-router.put('/:id/reject', verifyToken, requireRole('admin', 'purchasing_manager'), async (req, res) => {
-  const { rejection_reason } = req.body;
-  try {
-    const result = await pool.query(
-      `UPDATE purchase_requests SET status = 'rejected', rejection_reason = $1, updated_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING *`,
-      [rejection_reason || null, req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(400).json({ message: 'لا يمكن رفض الطلب' });
-    res.json({ message: 'تم رفض طلب الشراء', data: result.rows[0] });
-  } catch (err) {
-    console.error('[PUT /purchase-requests/:id/reject] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// GET /purchase-requests/approved
-router.get('/approved', verifyToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT pr.*, d.name as department_name, u.full_name as requester_name, c.name as currency_name
-      FROM purchase_requests pr
-      LEFT JOIN departments d ON pr.department_id = d.id
-      LEFT JOIN users u ON pr.requested_by = u.id
-      LEFT JOIN currencies c ON pr.currency_id = c.id
-      WHERE pr.status = 'approved'
-      ORDER BY pr.request_year DESC, pr.request_number DESC`
+      `SELECT pr.*, 
+        w.name as warehouse_name,
+        u.full_name as requested_by_name
+       FROM purchase_requests pr
+       LEFT JOIN warehouses w ON pr.warehouse_id = w.id
+       LEFT JOIN users u ON pr.requested_by = u.id
+       WHERE pr.status = 'pending'
+       ORDER BY pr.created_at DESC`
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('[GET /purchase-requests/approved] Error:', err);
+    console.error('Error fetching pending requests:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// جلب كل طلبات الشراء (مع الأصناف)
+router.get('/all', verifyToken, async (req, res) => {
+  try {
+    const requestsResult = await pool.query(
+      `SELECT pr.*, 
+        w.name as warehouse_name,
+        u.full_name as requested_by_name,
+        au.full_name as approved_by_name
+       FROM purchase_requests pr
+       LEFT JOIN warehouses w ON pr.warehouse_id = w.id
+       LEFT JOIN users u ON pr.requested_by = u.id
+       LEFT JOIN users au ON pr.approved_by = au.id
+       ORDER BY pr.created_at DESC`
+    );
+
+    const itemsResult = await pool.query(
+      `SELECT pri.*, 
+        i.name as item_name, 
+        i.code as item_code
+       FROM purchase_request_items pri
+       LEFT JOIN items i ON pri.item_id = i.id
+       ORDER BY pri.id`
+    );
+
+    const requests = requestsResult.rows.map(r => ({
+      ...r,
+      items: itemsResult.rows.filter(i => i.purchase_request_id === r.id)
+    }));
+
+    res.json(requests);
+  } catch (err) {
+    console.error('Error fetching all requests:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// جلب تفاصيل طلب شراء واحد
+router.get('/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const requestResult = await pool.query(
+      `SELECT pr.*, 
+        w.name as warehouse_name,
+        u.full_name as requested_by_name,
+        au.full_name as approved_by_name
+       FROM purchase_requests pr
+       LEFT JOIN warehouses w ON pr.warehouse_id = w.id
+       LEFT JOIN users u ON pr.requested_by = u.id
+       LEFT JOIN users au ON pr.approved_by = au.id
+       WHERE pr.id = $1`,
+      [id]
+    );
+
+    if (requestResult.rows.length === 0) {
+      return res.status(404).json({ message: 'الطلب غير موجود' });
+    }
+
+    const itemsResult = await pool.query(
+      `SELECT pri.*, 
+        i.name as item_name, 
+        i.code as item_code
+       FROM purchase_request_items pri
+       LEFT JOIN items i ON pri.item_id = i.id
+       WHERE pri.purchase_request_id = $1
+       ORDER BY pri.id`,
+      [id]
+    );
+
+    res.json({
+      ...requestResult.rows[0],
+      items: itemsResult.rows
+    });
+  } catch (err) {
+    console.error('Error fetching request details:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// إلغاء اعتماد طلب الشراء وإرجاعه لحالة معلقة
+router.put('/:id/cancel', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query(
+      'SELECT * FROM purchase_requests WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'طلب الشراء غير موجود' });
+    }
+
+    const request = existing.rows[0];
+
+    if (request.status !== 'approved' && request.status !== 'completed') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'طلب الشراء ليس في حالة معتمدة' });
+    }
+
+    // If completed, check if linked to purchase order
+    if (request.status === 'completed') {
+      const poCheck = await client.query(
+        'SELECT id FROM purchase_orders WHERE purchase_request_id = $1 LIMIT 1',
+        [id]
+      );
+      if (poCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          message: 'لا يمكن إلغاء الطلب — مربوط بأمر شراء. استخدم إلغاء أمر الشراء أولاً'
+        });
+      }
+    }
+
+    await client.query(
+      `UPDATE purchase_requests SET status = 'pending', approved_by = NULL, approved_at = NULL, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'تم إلغاء اعتماد طلب الشراء وإرجاعه لحالة معلقة' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error canceling PR:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// اعتماد أو رفض طلب شراء
+router.put('/:id/approve', verifyToken, requireRole('admin', 'purchasing'), async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'الحالة يجب أن تكون approved أو rejected' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE purchase_requests 
+       SET status = $1, 
+           approved_by = $2, 
+           approved_at = NOW() 
+       WHERE id = $3 AND status = 'pending'
+       RETURNING *`,
+      [status, req.user.id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'الطلب غير موجود أو تمت معالجته مسبقاً' });
+    }
+
+    const message = status === 'approved' ? 'تم اعتماد طلب الشراء' : 'تم رفض طلب الشراء';
+    res.json({ message, data: result.rows[0] });
+  } catch (err) {
+    console.error('Error approving request:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// تعديل طلب شراء
+router.put('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { 
+    request_number, 
+    department, 
+    warehouse_id, 
+    currency, 
+    exchange_rate, 
+    notes, 
+    items,
+    total_usd,
+    total_egp 
+  } = req.body;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. نحدث الطلب الرئيسي
+    const requestResult = await client.query(
+      `UPDATE purchase_requests 
+       SET request_number = $1, department = $2, warehouse_id = $3,
+           currency = $4, exchange_rate = $5, total_usd = $6, total_egp = $7,
+           notes = $8
+       WHERE id = $9 AND status = 'pending'
+       RETURNING *`,
+      [
+        request_number, 
+        department, 
+        warehouse_id || null,
+        currency || 'USD',
+        parseFloat(exchange_rate) || 1,
+        parseFloat(total_usd) || 0,
+        parseFloat(total_egp) || 0,
+        notes || '',
+        id
+      ]
+    );
+
+    if (requestResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الطلب غير موجود أو تمت معالجته مسبقاً' });
+    }
+
+    // 2. نحذف الأصناف القديمة
+    await client.query(
+      'DELETE FROM purchase_request_items WHERE purchase_request_id = $1',
+      [id]
+    );
+
+    // 3. نضيف الأصناف الجديدة
+    if (items && items.length > 0) {
+      for (const item of items) {
+        if (!item.item_id) continue;
+
+        const qty = parseFloat(item.quantity) || 0;
+        const unitPriceUsd = parseFloat(item.unit_price_usd) || 0;
+        const unitPriceEgp = parseFloat(item.unit_price_egp) || 0;
+        const itemTotalUsd = qty * unitPriceUsd;
+        const itemTotalEgp = qty * unitPriceEgp;
+
+        await client.query(
+          `INSERT INTO purchase_request_items 
+           (purchase_request_id, item_id, quantity, unit, 
+            unit_price_usd, unit_price_egp, total_usd, total_egp, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            id,
+            item.item_id,
+            qty,
+            item.unit || 'عدد',
+            unitPriceUsd,
+            unitPriceEgp,
+            itemTotalUsd,
+            itemTotalEgp,
+            item.notes || ''
+          ]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'تم تعديل طلب الشراء بنجاح',
+      data: requestResult.rows[0]
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error updating purchase request:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// حذف طلب شراء
+router.delete('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const check = await client.query(
+      'SELECT status FROM purchase_requests WHERE id = $1',
+      [id]
+    );
+
+    if (check.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'الطلب غير موجود' });
+    }
+
+    if (check.rows[0].status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'لا يمكن حذف طلب الشراء إلا في حالة معلق' });
+    }
+
+    await client.query('DELETE FROM purchase_request_items WHERE purchase_request_id = $1', [id]);
+    await client.query('DELETE FROM purchase_requests WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'تم حذف طلب الشراء بنجاح' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting request:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// جلب طلبات الشراء المتاحة لأوامر الشراء (أي status مش completed)
+router.get('/approved-requests', verifyToken, async (req, res) => {
+  try {
+    const requestsResult = await pool.query(
+      `SELECT pr.*, w.name as warehouse_name,
+        u.full_name as requested_by_name
+       FROM purchase_requests pr
+       LEFT JOIN warehouses w ON pr.warehouse_id = w.id
+       LEFT JOIN users u ON pr.requested_by = u.id
+       WHERE pr.status != 'completed'
+       AND pr.id NOT IN (
+         SELECT DISTINCT purchase_request_id FROM purchase_orders 
+         WHERE purchase_request_id IS NOT NULL
+       )
+       ORDER BY pr.created_at DESC`
+    );
+
+    const itemsResult = await pool.query(
+      `SELECT pri.*, i.name as item_name, i.code as item_code
+       FROM purchase_request_items pri
+       LEFT JOIN items i ON pri.item_id = i.id
+       ORDER BY pri.id`
+    );
+
+    const requests = requestsResult.rows.map(r => ({
+      ...r,
+      items: itemsResult.rows.filter(i => i.purchase_request_id === r.id)
+    }));
+
+    res.json(requests);
+  } catch (err) {
+    console.error('Error fetching approved requests:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
