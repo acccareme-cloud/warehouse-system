@@ -387,7 +387,7 @@ function SalesInvoices() {
 
       {/* Order Selector Modal */}
       {showOrderSelector && (
-        <div style={{ backgroundColor: '#f0f9ff', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #0ea5e9' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#f0f9ff', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #0ea5e9' }}>
           <h3>📋 اختر أمر بيع معتمد:</h3>
           {approvedOrders.length === 0 ? <p>لا يوجد أوامر بيع معتمدة</p> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -423,7 +423,7 @@ function SalesInvoices() {
 
       {/* DQ Multi-Selector Modal */}
       {showDqSelector && (
-        <div style={{ backgroundColor: '#fffbeb', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #d97706' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fffbeb', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #d97706' }}>
           <h3>📋 اختر بيانات التسليم المسعرة (ممكن تختار أكتر من واحد — هتتجمع في فاتورة واحدة):</h3>
           {approvedDqs.length === 0 ? <p>لا توجد بيانات تسليم مسعرة معتمدة لم تُفوتر بعد</p> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -463,7 +463,7 @@ function SalesInvoices() {
 
       {/* Form Modal */}
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '3px solid #2563eb' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '3px solid #2563eb' }}>
           <h3 style={{ color: '#2563eb' }}>
             {editingId ? '✏️ تعديل' : (selectedDqs.length > 0 ? `📋 فاتورة من ${selectedDqs.length} بيان تسليم مسعر` : (formData.so_id ? `🔄 تحويل أمر بيع إلى ${getTabLabel()}` : `➕ ${getTabLabel()} ${activeTab === 'tax' && taxSubType === 'virtual' ? 'وهمية' : 'جديدة'}`))}
           </h3>
@@ -475,7 +475,7 @@ function SalesInvoices() {
           )}
 
           {activeTab === 'tax' && (
-            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107' }}>
+            <div style={{ color: '#1e293b', marginBottom: '20px', padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107' }}>
               <h4 style={{ marginBottom: '10px', color: '#856404' }}>⚙️ إعدادات الضريبة</h4>
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -495,7 +495,7 @@ function SalesInvoices() {
           )}
 
           {activeTab === 'price_quote' && (
-            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#ede9fe', borderRadius: '8px', border: '2px solid #8b5cf6' }}>
+            <div style={{ color: '#1e293b', marginBottom: '20px', padding: '15px', backgroundColor: '#ede9fe', borderRadius: '8px', border: '2px solid #8b5cf6' }}>
               <h4 style={{ marginBottom: '10px', color: '#5b21b6' }}>📋 بيان أسعار — بدون ضرائب | مخزون الشركة</h4>
               <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>هذا المستند لا يحتوي على ضرائب ويصرف من مخزون الشركة (غير الضريبي)</p>
             </div>
@@ -510,7 +510,7 @@ function SalesInvoices() {
               </div>
             </div>
             <div><label>التاريخ:</label><input type="date" value={formData.invoice_date} onChange={e => setFormData({ ...formData, invoice_date: e.target.value })} required style={{ width: '100%', padding: '8px' }} /></div>
-            {formData.so_id && <div><label>أمر البيع:</label><input type="text" value={`SO-${formData.so_id}`} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} /></div>}
+            {formData.so_id && <div><label>أمر البيع:</label><input type="text" value={`SO-${formData.so_id}`} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} /></div>}
             <div>
               <label>العميل:</label>
               <select value={formData.customer_id} onChange={e => {
@@ -582,7 +582,7 @@ function SalesInvoices() {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
                   <td colSpan="5" style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>إجمالي الأصناف:</td>
                   <td style={{ padding: '8px', border: '1px solid #ddd' }}>
                     {safeNumber(formItems.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0))} ج.م

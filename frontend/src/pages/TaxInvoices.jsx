@@ -289,13 +289,13 @@ function TaxInvoices() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #2563eb' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #2563eb' }}>
           <h3 style={{ color: '#2563eb', marginBottom: '20px' }}>➕ فاتورة ضريبية جديدة</h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             <div>
               <label>رقم الفاتورة (تلقائي):</label>
-              <input type="text" value={formData.invoice_number} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
+              <input type="text" value={formData.invoice_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
             </div>
             <div>
               <label>تاريخ الفاتورة:</label>
@@ -322,7 +322,7 @@ function TaxInvoices() {
 
           {/* إعدادات الضرائب للعميل */}
           {customerTaxSettings && (
-            <div style={{ padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107', marginBottom: '20px' }}>
+            <div style={{ color: '#1e293b', padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107', marginBottom: '20px' }}>
               <h4 style={{ color: '#856404', margin: '0 0 10px 0' }}>⚙️ إعدادات الضرائب للعميل</h4>
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                 <span style={{ color: '#856404' }}>
@@ -341,7 +341,7 @@ function TaxInvoices() {
               <h4 style={{ color: '#374151', marginBottom: '10px' }}>🔗 ربط ببيانات التسليم المسعر (اختياري)</h4>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {pricingSheets.map(sheet => (
-                  <label key={sheet.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: '#e0e7ff', borderRadius: '6px', cursor: 'pointer' }}>
+                  <label key={sheet.id} style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 12px', backgroundColor: '#e0e7ff', borderRadius: '6px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={selectedSheets.includes(sheet.id)}
@@ -407,7 +407,7 @@ function TaxInvoices() {
             ➕ إضافة صنف
           </button>
 
-          <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '2px solid #e5e7eb', marginBottom: '15px' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '2px solid #e5e7eb', marginBottom: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span>الإجمالي:</span>
               <strong>{subtotal.toLocaleString()} ج.م</strong>

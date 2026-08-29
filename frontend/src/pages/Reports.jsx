@@ -153,7 +153,7 @@ function Reports() {
         <div>
           <h3>كارت صنف - تقرير مفصل</h3>
           
-          <form onSubmit={fetchCardReport} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+          <form onSubmit={fetchCardReport} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
               <div>
                 <label>الصنف:</label>
@@ -200,15 +200,15 @@ function Reports() {
               <div ref={printRef}>
                 {/* ملخص الرصيد */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '20px' }}>
-                  <div style={{ backgroundColor: '#e0f2fe', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#1e293b', backgroundColor: '#e0f2fe', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
                     <div style={{ fontSize: '14px', color: '#0369a1' }}>رصيد أول</div>
                     <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0369a1' }}>{cardData.opening_balance}</div>
                   </div>
-                  <div style={{ backgroundColor: '#fef3c7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#1e293b', backgroundColor: '#fef3c7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
                     <div style={{ fontSize: '14px', color: '#92400e' }}>الحركات</div>
                     <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#92400e' }}>{cardData.movements.length}</div>
                   </div>
-                  <div style={{ backgroundColor: '#dcfce7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ color: '#1e293b', backgroundColor: '#dcfce7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
                     <div style={{ fontSize: '14px', color: '#166534' }}>رصيد آخر</div>
                     <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534' }}>{cardData.closing_balance}</div>
                   </div>
@@ -229,7 +229,7 @@ function Reports() {
                   </thead>
                   <tbody>
                     {/* سطر رصيد أول */}
-                    <tr style={{ backgroundColor: '#e0f2fe', fontWeight: 'bold' }}>
+                    <tr style={{ color: '#1e293b', backgroundColor: '#e0f2fe', fontWeight: 'bold' }}>
                       <td style={tdStyle} colSpan="5">رصيد أول الفترة</td>
                       <td style={tdStyle}>{cardData.opening_balance}</td>
                       <td style={tdStyle}>-</td>
@@ -256,7 +256,7 @@ function Reports() {
                     ))}
 
                     {/* سطر رصيد آخر */}
-                    <tr style={{ backgroundColor: '#dcfce7', fontWeight: 'bold' }}>
+                    <tr style={{ color: '#1e293b', backgroundColor: '#dcfce7', fontWeight: 'bold' }}>
                       <td style={tdStyle} colSpan="5">رصيد آخر الفترة</td>
                       <td style={tdStyle}>{cardData.closing_balance}</td>
                       <td style={tdStyle}>-</td>

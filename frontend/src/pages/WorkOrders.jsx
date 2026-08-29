@@ -340,10 +340,10 @@ function WorkOrders() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#fffbeb', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '3px solid #f59e0b' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#fffbeb', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '3px solid #f59e0b' }}>
           <h3 style={{ color: '#f59e0b' }}>➕ أمر شغل جديد</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
-            <div><label>رقم الأمر:</label><input type="text" value={formData.work_order_number} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} /></div>
+            <div><label>رقم الأمر:</label><input type="text" value={formData.work_order_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} /></div>
             <div><label>العميل:</label><select value={formData.customer_id} onChange={(e) => { const c = customers.find(x => x.id == e.target.value); setFormData({...formData, customer_id: e.target.value, customer_name: c?.name || ''}); }} required style={{ width: '100%', padding: '8px' }}><option value="">اختر</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             <div><label>الصنف:</label><select value={formData.item_id} onChange={(e) => { const item = items.find(x => x.id == e.target.value); setFormData({...formData, item_id: e.target.value, item_name: item?.name || '', serial_numbers: [], warehouse_id: formData.warehouse_id || item?.warehouse_id || ''}); }} required style={{ width: '100%', padding: '8px' }}><option value="">اختر</option>{items.map(i => <option key={i.id} value={i.id}>{i.code} - {i.name}{i.has_serial ? ' 🔢' : ''}</option>)}</select></div>
             <div><label>الكمية:</label><input type="number" step="0.001" min="0.001" value={formData.quantity} onChange={(e) => setFormData({...formData, quantity: e.target.value, serial_numbers: []})} required style={{ width: '100%', padding: '8px' }} /></div>
@@ -458,7 +458,7 @@ function WorkOrders() {
       {editOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
           onClick={() => setEditOrder(null)}>
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '950px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
+          <div style={{ color: '#1e293b', backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '950px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: '#f59e0b' }}>✏️ تعديل أمر الشغل {editOrder.work_order_number}</h3>

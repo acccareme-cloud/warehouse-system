@@ -107,7 +107,7 @@ function RefundableDeposits() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #0d9488' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #0d9488' }}>
           <h3 style={{ color: '#0d9488', marginBottom: '20px' }}>➕ تأمين مسترد جديد</h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>

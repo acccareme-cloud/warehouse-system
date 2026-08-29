@@ -155,7 +155,7 @@ function Requests() {
 
       {message && <p style={{ padding: '10px', backgroundColor: message.includes('نجاح') ? '#d4edda' : '#f8d7da', borderRadius: '4px' }}>{message}</p>}
 
-      <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+      <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <h3>طلب صرف جديد</h3>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
@@ -166,7 +166,7 @@ function Requests() {
                 type="text" 
                 value={formData.request_number} 
                 readOnly
-                style={{ flex: 1, padding: '8px', backgroundColor: '#e2e8f0' }} 
+                style={{ color: '#1e293b', flex: 1, padding: '8px', backgroundColor: '#e2e8f0' }} 
               />
               <button 
                 type="button" 
@@ -260,7 +260,7 @@ function Requests() {
 
         {/* اختيار السريالات */}
         {formData.item_id && formData.warehouse_id && availableSerials.length > 0 && (
-          <div style={{ marginTop: '20px', backgroundColor: '#e0f2fe', padding: '15px', borderRadius: '8px', border: '2px solid #0d9488' }}>
+          <div style={{ color: '#1e293b', marginTop: '20px', backgroundColor: '#e0f2fe', padding: '15px', borderRadius: '8px', border: '2px solid #0d9488' }}>
             <h4 style={{ color: '#0d9488', marginBottom: '15px' }}>
               🔢 اختيار السريالات ({selectedSerials.length} / {formData.quantity})
             </h4>

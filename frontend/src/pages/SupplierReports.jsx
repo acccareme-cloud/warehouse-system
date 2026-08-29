@@ -244,7 +244,7 @@ function SupplierReports() {
       {activeTab === 'ledger' && (
         <div>
           {/* Filters */}
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
+          <div style={{ color: '#1e293b', display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#374151' }}>المورد:</label>
               <select 
@@ -300,7 +300,7 @@ function SupplierReports() {
           {ledgerData && (
             <div className="print-area">
               {/* Report Header */}
-              <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#f0f9ff', borderRadius: '12px' }}>
+              <div style={{ color: '#1e293b', textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#f0f9ff', borderRadius: '12px' }}>
                 <h2 style={{ margin: '0 0 10px 0', color: '#1e40af' }}>📋 كشف حساب المورد</h2>
                 <p style={{ margin: '5px 0', fontSize: '18px', fontWeight: 'bold' }}>
                   {ledgerData.supplier_code} - {ledgerData.supplier}
@@ -311,7 +311,7 @@ function SupplierReports() {
               </div>
 
               {/* Opening Balance */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '15px', backgroundColor: '#fef3c7', borderRadius: '8px', marginBottom: '15px' }}>
+              <div style={{ color: '#1e293b', display: 'flex', justifyContent: 'space-between', padding: '15px', backgroundColor: '#fef3c7', borderRadius: '8px', marginBottom: '15px' }}>
                 <span style={{ fontWeight: 'bold', color: '#92400e' }}>الرصيد الافتتاحي:</span>
                 <span style={{ fontWeight: 'bold', color: '#92400e', fontSize: '18px' }}>
                   {parseFloat(ledgerData.opening_balance).toLocaleString('ar-EG', { minimumFractionDigits: 2 })} ج.م
@@ -358,19 +358,19 @@ function SupplierReports() {
 
               {/* Summary */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '20px' }}>
-                <div style={{ padding: '20px', backgroundColor: '#fee2e2', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ color: '#1e293b', padding: '20px', backgroundColor: '#fee2e2', borderRadius: '12px', textAlign: 'center' }}>
                   <p style={{ margin: '0 0 10px 0', color: '#991b1b', fontWeight: 'bold' }}>إجمالي الفواتير (مدين)</p>
                   <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#dc2626' }}>
                     {parseFloat(ledgerData.summary.period_debit).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <div style={{ padding: '20px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ color: '#1e293b', padding: '20px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
                   <p style={{ margin: '0 0 10px 0', color: '#166534', fontWeight: 'bold' }}>إجمالي المدفوعات (دائن)</p>
                   <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#16a34a' }}>
                     {parseFloat(ledgerData.summary.period_credit).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <div style={{ padding: '20px', backgroundColor: '#dbeafe', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ color: '#1e293b', padding: '20px', backgroundColor: '#dbeafe', borderRadius: '12px', textAlign: 'center' }}>
                   <p style={{ margin: '0 0 10px 0', color: '#1e40af', fontWeight: 'bold' }}>الرصيد الحالي</p>
                   <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#2563eb' }}>
                     {parseFloat(ledgerData.summary.closing_balance).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
@@ -395,7 +395,7 @@ function SupplierReports() {
       {activeTab === 'balances' && (
         <div>
           {/* Filters */}
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
+          <div style={{ color: '#1e293b', display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#374151' }}>اختر الشهر:</label>
               <input 
@@ -438,7 +438,7 @@ function SupplierReports() {
           {balancesData && (
             <div className="print-area">
               {/* Report Header */}
-              <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '12px' }}>
+              <div style={{ color: '#1e293b', textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '12px' }}>
                 <h2 style={{ margin: '0 0 10px 0', color: '#166534' }}>💰 أرصدة الموردين</h2>
                 <p style={{ margin: '5px 0', color: '#6b7280' }}>
                   الفترة من {balancesData.from_date} إلى {balancesData.to_date}
@@ -526,7 +526,7 @@ function SupplierReports() {
       {activeTab === 'itemsReport' && (
         <div>
           {/* Filters */}
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
+          <div style={{ color: '#1e293b', display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#374151' }}>المورد (اختياري):</label>
               <select 
@@ -607,7 +607,7 @@ function SupplierReports() {
           {itemsReportData && (
             <div className="print-area">
               {/* Report Header */}
-              <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#f0f9ff', borderRadius: '12px' }}>
+              <div style={{ color: '#1e293b', textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#f0f9ff', borderRadius: '12px' }}>
                 <h2 style={{ margin: '0 0 10px 0', color: '#1e40af' }}>📦 تقرير الأصناف</h2>
                 <div style={{ color: '#6b7280' }}>
                   الفترة من {itemsReportData.from_date} إلى {itemsReportData.to_date}
@@ -616,17 +616,17 @@ function SupplierReports() {
 
               {/* Summary Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-                <div style={{ backgroundColor: '#eff6ff', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ color: '#1e293b', backgroundColor: '#eff6ff', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ color: '#1e40af', fontWeight: 'bold', marginBottom: '8px' }}>عدد الحركات</div>
                   <div style={{ fontSize: '22px', fontWeight: 'bold' }}>{itemsReportData.summary.transactions_count}</div>
                 </div>
-                <div style={{ backgroundColor: '#f0fdf4', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ color: '#1e293b', backgroundColor: '#f0fdf4', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ color: '#166534', fontWeight: 'bold', marginBottom: '8px' }}>إجمالي الكمية</div>
                   <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
                     {itemsReportData.summary.total_quantity.toLocaleString('ar-EG')}
                   </div>
                 </div>
-                <div style={{ backgroundColor: '#fef2f2', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
+                <div style={{ color: '#1e293b', backgroundColor: '#fef2f2', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ color: '#dc2626', fontWeight: 'bold', marginBottom: '8px' }}>إجمالي القيمة</div>
                   <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
                     {itemsReportData.summary.total_amount.toLocaleString('ar-EG', { minimumFractionDigits: 2 })} ج.م

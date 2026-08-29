@@ -9,9 +9,8 @@ const { verifyToken: authenticateToken } = require('../middleware/auth');
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT c.*, u.username as created_by_name
+      SELECT c.*
       FROM currencies c
-      LEFT JOIN users u ON u.id = c.created_by
       WHERE c.is_active = true
       ORDER BY c.is_default DESC, c.code ASC
     `);
@@ -29,9 +28,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(`
-      SELECT c.*, u.username as created_by_name
+      SELECT c.*
       FROM currencies c
-      LEFT JOIN users u ON u.id = c.created_by
       WHERE c.id = $1
     `, [id]);
 

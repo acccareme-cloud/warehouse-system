@@ -80,12 +80,12 @@ function Expenses() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
           <h3>مصروف جديد</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
             <div>
               <label>رقم المصروف (تلقائي):</label>
-              <input type="text" value={formData.expense_number} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
+              <input type="text" value={formData.expense_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
             </div>
             <div>
               <label>نوع المصروف:</label>

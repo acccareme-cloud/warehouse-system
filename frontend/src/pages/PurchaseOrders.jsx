@@ -444,7 +444,7 @@ const handleDelete = async (id) => {
 
       {/* Approved Requests Import */}
       {approvedRequests.length > 0 && !showForm && (
-        <div style={{ backgroundColor: '#fff3cd', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #ffc107' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff3cd', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #ffc107' }}>
           <h3 style={{ color: '#856404', marginBottom: '15px' }}>📥 طلبات شراء معتمدة (مستعدة للتحويل لأوامر شراء)</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -461,7 +461,7 @@ const handleDelete = async (id) => {
             </thead>
             <tbody>
               {approvedRequests.map(r => (
-                <tr key={r.id} style={{ backgroundColor: 'white' }}>
+                <tr key={r.id} style={{ color: '#1e293b', backgroundColor: 'white' }}>
                   <td style={tdStyle}><strong>{r.request_number}</strong></td>
                   <td style={tdStyle}>{r.department}</td>
                   <td style={tdStyle}>
@@ -499,7 +499,7 @@ const handleDelete = async (id) => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رقم الامر:</label>
-              <input type="text" value={formData.order_number} readOnly style={{ width: '100%', padding: '10px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px' }} />
+              <input type="text" value={formData.order_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '10px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px' }} />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>المورد:</label>
@@ -568,7 +568,7 @@ const handleDelete = async (id) => {
               </button>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
               <thead>
                 <tr style={{ backgroundColor: '#343a40', color: 'white' }}>
                   <th style={{...thStyle, width: '30%'}}>الصنف</th>
@@ -611,7 +611,7 @@ const handleDelete = async (id) => {
                     <td style={tdStyle}>
                       <input 
                         type="text" value={item.unit} readOnly
-                        style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }} 
+                        style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }} 
                       />
                     </td>
                     <td style={tdStyle}>
@@ -654,7 +654,7 @@ const handleDelete = async (id) => {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
                   <td colSpan="5" style={{...tdStyle, textAlign: 'left'}}>الإجمالي:</td>
                   <td style={tdStyle}><strong style={{ color: '#007bff' }}>${totals.totalUsd}</strong></td>
                   <td style={tdStyle}><strong style={{ color: '#28a745' }}>{totals.totalEgp} ج.م</strong></td>
@@ -702,7 +702,7 @@ const handleDelete = async (id) => {
       {/* Orders List */}
       <h3>📋 {activeTab === 'local' ? 'اوامر الشراء المحلية' : 'اوامر الشراء الاستيرادية'} ({orders.length})</h3>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', backgroundColor: 'white' }}>
+        <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', marginTop: '10px', backgroundColor: 'white' }}>
           <thead>
             <tr style={{ backgroundColor: activeTab === 'local' ? '#0d9488' : '#92400e', color: 'white' }}>
               <th style={thStyle}>رقم الامر</th>
@@ -836,7 +836,7 @@ const handleDelete = async (id) => {
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
               <div><strong>رقم الامر:</strong> {selectedOrder.order_number}</div>
               <div><strong>التاريخ:</strong> {new Date(selectedOrder.created_at).toLocaleDateString('ar-EG')}</div>
               <div><strong>المورد:</strong> {selectedOrder.supplier}</div>
@@ -876,7 +876,7 @@ const handleDelete = async (id) => {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
                   <td colSpan="6" style={{...tdStyle, textAlign: 'left'}}>الإجمالي:</td>
                   <td style={tdStyle}><strong style={{ color: '#007bff' }}>${selectedOrder.total_usd || 0}</strong></td>
                   <td></td>
@@ -905,14 +905,14 @@ const handleDelete = async (id) => {
               </button>
             </div>
 
-            <div id="print-area" style={{ padding: '30px', border: '2px solid #333', backgroundColor: 'white' }}>
+            <div id="print-area" style={{ color: '#1e293b', padding: '30px', border: '2px solid #333', backgroundColor: 'white' }}>
               <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '20px' }}>
                 <h1 style={{ margin: '0', fontSize: '28px' }}>أمر شراء</h1>
                 <p style={{ margin: '10px 0', fontSize: '18px' }}>رقم: {selectedOrder.order_number}</p>
                 <p style={{ margin: '5px 0', color: '#666' }}>التاريخ: {new Date(selectedOrder.created_at).toLocaleDateString('ar-EG')}</p>
               </div>
 
-              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+              <div style={{ color: '#1e293b', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
                   <div><strong>المورد:</strong> {selectedOrder.supplier}</div>
                   <div><strong>المخزن:</strong> {selectedOrder.warehouse_name || '-'}</div>
@@ -946,11 +946,11 @@ const handleDelete = async (id) => {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{...tdStyle, border: '2px solid #333', textAlign: 'left'}}>الإجمالي:</td>
                     <td style={{...tdStyle, border: '2px solid #333'}}><strong>${selectedOrder.total_usd || 0}</strong></td>
                   </tr>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{...tdStyle, border: '2px solid #333', textAlign: 'left'}}>الإجمالي (EGP):</td>
                     <td style={{...tdStyle, border: '2px solid #333'}}><strong>{selectedOrder.total_egp || 0} ج.م</strong></td>
                   </tr>

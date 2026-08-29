@@ -77,22 +77,22 @@ function FinanceDashboard() {
 
       {/* ملخص الإجماليات */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '30px' }}>
-        <div style={{ backgroundColor: '#e0f2fe', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#e0f2fe', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ fontSize: '14px', color: '#0369a1' }}>إجمالي الاذونات</div>
           <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#0369a1' }}>{summary.total_count}</div>
           <div style={{ fontSize: '16px', color: '#0369a1' }}>{formatNumber(summary.total_amount)} ج.م</div>
         </div>
-        <div style={{ backgroundColor: '#fef3c7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fef3c7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ fontSize: '14px', color: '#92400e' }}>بانتظار الاعتماد</div>
           <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#92400e' }}>{formatNumber(summary.pending_amount)}</div>
           <div style={{ fontSize: '16px', color: '#92400e' }}>ج.م</div>
         </div>
-        <div style={{ backgroundColor: '#dcfce7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#dcfce7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ fontSize: '14px', color: '#166534' }}>معتمد</div>
           <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#166534' }}>{formatNumber(summary.approved_amount)}</div>
           <div style={{ fontSize: '16px', color: '#166534' }}>ج.م</div>
         </div>
-        <div style={{ backgroundColor: '#fee2e2', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fee2e2', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <div style={{ fontSize: '14px', color: '#991b1b' }}>مرفوض</div>
           <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#991b1b' }}>{formatNumber(summary.rejected_amount)}</div>
           <div style={{ fontSize: '16px', color: '#991b1b' }}>ج.م</div>

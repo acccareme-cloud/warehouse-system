@@ -294,7 +294,7 @@ function PurchaseRequests() {
     display: 'flex', alignItems: 'center', justifyContent: 'center'
   };
   const modalContent = {
-    backgroundColor: 'white', borderRadius: '8px', padding: '30px',
+    backgroundColor: 'white', color: '#1e293b', borderRadius: '8px', padding: '30px',
     maxWidth: '900px', width: '90%', maxHeight: '90vh', overflow: 'auto',
     direction: 'rtl'
   };
@@ -331,7 +331,7 @@ function PurchaseRequests() {
       )}
 
       {/* نموذج طلب شراء جديد */}
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '2px solid #007bff' }}>
+      <div style={{ backgroundColor: '#f8f9fa', color: '#1e293b', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '2px solid #007bff' }}>
         <h3 style={{ color: '#007bff', marginBottom: '20px' }}>
           {editingId ? '✏️ تعديل طلب شراء' : '➕ طلب شراء جديد'}
         </h3>
@@ -345,7 +345,7 @@ function PurchaseRequests() {
                 type="text" 
                 value={formData.request_number} 
                 readOnly
-                style={{ width: '100%', padding: '10px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px' }} 
+                style={{ width: '100%', padding: '10px', backgroundColor: '#e2e8f0', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
               />
             </div>
 
@@ -354,7 +354,7 @@ function PurchaseRequests() {
               <select 
                 value={formData.department} 
                 onChange={(e) => setFormData({...formData, department: e.target.value})}
-                style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}
               >
                 <option value="المشتريات">المشتريات</option>
                 <option value="الصيانة">الصيانة</option>
@@ -369,7 +369,7 @@ function PurchaseRequests() {
                 value={formData.warehouse_id} 
                 onChange={(e) => setFormData({...formData, warehouse_id: e.target.value})}
                 required
-                style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}
               >
                 <option value="">-- اختر المخزن --</option>
                 {warehouses.map(w => (
@@ -388,7 +388,7 @@ function PurchaseRequests() {
                   setFormData({...formData, currency: e.target.value, exchange_rate: newRate});
                   updateItem(0, 'exchange_rate', newRate);
                 }}
-                style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}
               >
                 {currencies.length === 0 ? (
                   <>
@@ -414,7 +414,7 @@ function PurchaseRequests() {
                   setFormData({...formData, exchange_rate: e.target.value});
                   updateItem(0, 'exchange_rate', e.target.value);
                 }}
-                style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
               />
               <small style={{ color: '#888' }}>معبّأ تلقائيًا من شاشة العملات، وتقدر تعدّله يدويًا لو احتجت</small>
             </div>
@@ -433,7 +433,7 @@ function PurchaseRequests() {
               </button>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', color: '#1e293b' }}>
               <thead>
                 <tr style={{ backgroundColor: '#343a40', color: 'white' }}>
                   <th style={{...thStyle, width: '30%'}}>الصنف</th>
@@ -448,13 +448,13 @@ function PurchaseRequests() {
               </thead>
               <tbody>
                 {formItems.map((item, index) => (
-                  <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                  <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8f9fa' : 'white', color: '#1e293b' }}>
                     <td style={tdStyle}>
                       <select 
                         value={item.item_id} 
                         onChange={(e) => updateItem(index, 'item_id', e.target.value)}
                         required
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}
                       >
                         <option value="">-- اختر الصنف --</option>
                         {items.map(it => (
@@ -472,7 +472,7 @@ function PurchaseRequests() {
                         value={item.quantity} 
                         onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                         required
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
                       />
                     </td>
                     <td style={tdStyle}>
@@ -480,7 +480,7 @@ function PurchaseRequests() {
                         type="text" 
                         value={item.unit} 
                         readOnly
-                        style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }} 
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }} 
                       />
                     </td>
                     <td style={tdStyle}>
@@ -490,7 +490,7 @@ function PurchaseRequests() {
                         step="0.01"
                         value={item.unit_price_usd} 
                         onChange={(e) => updateItem(index, 'unit_price_usd', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
                       />
                     </td>
                     <td style={tdStyle}>
@@ -500,7 +500,7 @@ function PurchaseRequests() {
                         step="0.01"
                         value={item.unit_price_egp} 
                         onChange={(e) => updateItem(index, 'unit_price_egp', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
                       />
                     </td>
                     <td style={tdStyle}>
@@ -512,7 +512,7 @@ function PurchaseRequests() {
                         value={item.notes} 
                         onChange={(e) => updateItem(index, 'notes', e.target.value)}
                         placeholder="ملاحظات..."
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
                       />
                     </td>
                     <td style={tdStyle}>
@@ -528,7 +528,7 @@ function PurchaseRequests() {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
                   <td colSpan="5" style={{...tdStyle, textAlign: 'left'}}>الإجمالي:</td>
                   <td style={tdStyle}><strong style={{ color: '#007bff' }}>${totals.totalUsd}</strong></td>
                   <td style={tdStyle}><strong style={{ color: '#28a745' }}>{totals.totalEgp} ج.م</strong></td>
@@ -545,7 +545,7 @@ function PurchaseRequests() {
               value={formData.notes} 
               onChange={(e) => setFormData({...formData, notes: e.target.value})}
               placeholder="أي ملاحظات إضافية..."
-              style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }} 
+              style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} 
             />
           </div>
 
@@ -591,7 +591,7 @@ function PurchaseRequests() {
       {/* قائمة طلبات الشراء */}
       <h3>📋 جميع طلبات الشراء</h3>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', backgroundColor: 'white' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', backgroundColor: 'white', color: '#1e293b' }}>
           <thead>
             <tr style={{ backgroundColor: '#343a40', color: 'white' }}>
               <th style={thStyle}>رقم الطلب</th>
@@ -615,7 +615,7 @@ function PurchaseRequests() {
               </tr>
             ) : (
               requests.map(r => (
-                <tr key={r.id} style={{ backgroundColor: r.id % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                <tr key={r.id} style={{ backgroundColor: r.id % 2 === 0 ? '#f8f9fa' : 'white', color: '#1e293b' }}>
                   <td style={tdStyle}><strong>{r.request_number}</strong></td>
                   <td style={tdStyle}>{new Date(r.created_at).toLocaleDateString('ar-EG')}</td>
                   <td style={tdStyle}>{r.department}</td>
@@ -721,7 +721,7 @@ function PurchaseRequests() {
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', color: '#1e293b', borderRadius: '8px' }}>
               <div><strong>رقم الطلب:</strong> {selectedRequest.request_number}</div>
               <div><strong>التاريخ:</strong> {new Date(selectedRequest.request_date).toLocaleDateString('ar-EG')}</div>
               <div><strong>القسم:</strong> {selectedRequest.department}</div>
@@ -758,7 +758,7 @@ function PurchaseRequests() {
               </thead>
               <tbody>
                 {viewItems.map((item, index) => (
-                  <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                  <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8f9fa' : 'white', color: '#1e293b' }}>
                     <td style={tdStyle}>{item.item_name}</td>
                     <td style={tdStyle}>{item.item_code}</td>
                     <td style={tdStyle}>{item.quantity}</td>
@@ -771,7 +771,7 @@ function PurchaseRequests() {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
                   <td colSpan="6" style={{...tdStyle, textAlign: 'left'}}>الإجمالي:</td>
                   <td style={tdStyle}><strong style={{ color: '#007bff' }}>${selectedRequest.total_usd || 0}</strong></td>
                   <td></td>
@@ -818,14 +818,14 @@ function PurchaseRequests() {
             </div>
 
             {/* نموذج الطباعة */}
-            <div id="print-area" style={{ padding: '30px', border: '2px solid #333', backgroundColor: 'white' }}>
+            <div id="print-area" style={{ padding: '30px', border: '2px solid #333', backgroundColor: 'white', color: '#1e293b' }}>
               <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '20px' }}>
                 <h1 style={{ margin: '0', fontSize: '28px' }}>طلب شراء</h1>
                 <p style={{ margin: '10px 0', fontSize: '18px' }}>رقم: {selectedRequest.request_number}</p>
                 <p style={{ margin: '5px 0', color: '#666' }}>التاريخ: {new Date(selectedRequest.request_date).toLocaleDateString('ar-EG')}</p>
               </div>
 
-              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', color: '#1e293b', borderRadius: '8px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
                   <div><strong>القسم:</strong> {selectedRequest.department}</div>
                   <div><strong>المخزن:</strong> {selectedRequest.warehouse_name || '-'}</div>
@@ -860,11 +860,11 @@ function PurchaseRequests() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{...tdStyle, border: '2px solid #333', textAlign: 'left'}}>الإجمالي:</td>
                     <td style={{...tdStyle, border: '2px solid #333'}}><strong>${selectedRequest.total_usd || 0}</strong></td>
                   </tr>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{...tdStyle, border: '2px solid #333', textAlign: 'left'}}>الإجمالي (EGP):</td>
                     <td style={{...tdStyle, border: '2px solid #333'}}><strong>{selectedRequest.total_egp || 0} ج.م</strong></td>
                   </tr>

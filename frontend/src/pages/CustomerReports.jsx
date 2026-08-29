@@ -109,7 +109,7 @@ function CustomerReports() {
       )}
 
       {/* Filters */}
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '2px solid #2563eb' }}>
+      <div style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '2px solid #2563eb' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           <div>
             <label>نوع التقرير:</label>
@@ -177,7 +177,7 @@ function CustomerReports() {
 
       {/* ==================== STATEMENT REPORT ==================== */}
       {reportData && reportType === 'statement' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
           <h3 style={{ color: '#2563eb', marginBottom: '15px' }}>
             📋 كشف حساب: {reportData.customer?.name}
           </h3>
@@ -186,19 +186,19 @@ function CustomerReports() {
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '20px' }}>
-            <div style={{ backgroundColor: '#f0f9ff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#f0f9ff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#0284c7', margin: '0 0 10px 0' }}>إجمالي مدين</h4>
               <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#0284c7', margin: 0 }}>
                 {parseFloat(reportData.summary?.total_debit || 0).toLocaleString()} ج.م
               </p>
             </div>
-            <div style={{ backgroundColor: '#f0fdf4', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#f0fdf4', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#059669', margin: '0 0 10px 0' }}>إجمالي دائن</h4>
               <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#059669', margin: 0 }}>
                 {parseFloat(reportData.summary?.total_credit || 0).toLocaleString()} ج.م
               </p>
             </div>
-            <div style={{ backgroundColor: '#fef3c7', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#fef3c7', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#d97706', margin: '0 0 10px 0' }}>الرصيد النهائي</h4>
               <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#d97706', margin: 0 }}>
                 {parseFloat(reportData.final_balance || 0).toLocaleString()} ج.م
@@ -244,7 +244,7 @@ function CustomerReports() {
 
       {/* ==================== BALANCE REPORT ==================== */}
       {reportData && reportType === 'balance' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
           <h3 style={{ color: '#2563eb', marginBottom: '15px' }}>💰 أرصدة العملاء</h3>
 
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -291,29 +291,29 @@ function CustomerReports() {
 
       {/* ==================== SALES BY CUSTOMER REPORT ==================== */}
       {reportData && reportType === 'sales-by-customer' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
           <h3 style={{ color: '#2563eb', marginBottom: '15px' }}>📈 مبيعات العملاء</h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '20px' }}>
-            <div style={{ backgroundColor: '#f0f9ff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#f0f9ff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#0284c7', margin: '0 0 10px 0' }}>إجمالي الفواتير</h4>
               <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0284c7', margin: 0 }}>
                 {reportData.reduce((sum, c) => sum + parseFloat(c.invoices_count || 0), 0).toLocaleString()}
               </p>
             </div>
-            <div style={{ backgroundColor: '#fef3c7', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#fef3c7', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#d97706', margin: '0 0 10px 0' }}>إجمالي المبيعات</h4>
               <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#d97706', margin: 0 }}>
                 {reportData.reduce((sum, c) => sum + parseFloat(c.total_amount || 0), 0).toLocaleString()} ج.م
               </p>
             </div>
-            <div style={{ backgroundColor: '#f0fdf4', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#f0fdf4', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#059669', margin: '0 0 10px 0' }}>إجمالي المدفوع</h4>
               <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#059669', margin: 0 }}>
                 {reportData.reduce((sum, c) => sum + parseFloat(c.total_paid || 0), 0).toLocaleString()} ج.م
               </p>
             </div>
-            <div style={{ backgroundColor: '#fef2f2', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#fef2f2', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
               <h4 style={{ color: '#dc2626', margin: '0 0 10px 0' }}>إجمالي المتبقي</h4>
               <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#dc2626', margin: 0 }}>
                 {reportData.reduce((sum, c) => sum + parseFloat(c.total_remaining || 0), 0).toLocaleString()} ج.م
@@ -356,7 +356,7 @@ function CustomerReports() {
 
       {/* ==================== HIERARCHY REPORT ==================== */}
       {reportData && reportType === 'hierarchy' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
           <h3 style={{ color: '#2563eb', marginBottom: '15px' }}>🏢 تقرير الهيئات والفروع</h3>
 
           {reportData.map((auth, index) => (
@@ -375,7 +375,7 @@ function CustomerReports() {
               {auth.children?.length > 0 && (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#dbeafe' }}>
+                    <tr style={{ color: '#1e293b', backgroundColor: '#dbeafe' }}>
                       <th style={{ ...thStyle, color: '#1e40af' }}>الكود</th>
                       <th style={{ ...thStyle, color: '#1e40af' }}>الفرع</th>
                       <th style={{ ...thStyle, color: '#1e40af' }}>المبيعات</th>
@@ -410,7 +410,7 @@ function CustomerReports() {
                 <p style={{ padding: '15px', textAlign: 'center', color: '#6b7280' }}>لا يوجد فروع لهذه الهيئة</p>
               )}
 
-              <div style={{ backgroundColor: '#f8f9fa', padding: '10px 15px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '10px 15px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
                 <span>👥 عدد الفروع: <strong>{auth.children_count}</strong></span>
                 <span>📊 مبيعات الفروع: <strong>{parseFloat(auth.children_sales).toLocaleString()} ج.م</strong></span>
                 <span>💰 رصيد الفروع: <strong>{parseFloat(auth.children_balance).toLocaleString()} ج.م</strong></span>
@@ -422,7 +422,7 @@ function CustomerReports() {
 
       {/* ==================== AGING REPORT ==================== */}
       {reportData && reportType === 'aging' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb' }}>
           <h3 style={{ color: '#2563eb', marginBottom: '15px' }}>⏰ تقرير تقادم الديون</h3>
 
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

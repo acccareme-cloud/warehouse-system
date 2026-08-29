@@ -56,7 +56,7 @@ function AuthorityTrackingReport() {
       </div>
 
       {/* Filters */}
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '2px solid #7c3aed' }}>
+      <div style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '2px solid #7c3aed' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           <div>
             <label>من تاريخ:</label>
@@ -97,35 +97,35 @@ function AuthorityTrackingReport() {
       {/* Stats Cards */}
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-          <div style={{ backgroundColor: '#f3f4f6', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#f3f4f6', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#374151', margin: '0 0 10px 0' }}>الإجمالي</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', margin: 0 }}>{stats.total || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#fef3c7', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#fef3c7', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#92400e', margin: '0 0 10px 0' }}>مسودة</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#d97706', margin: 0 }}>{stats.draft || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#d1fae5', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#d1fae5', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#065f46', margin: '0 0 10px 0' }}>مستلم المستشفى</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#059669', margin: 0 }}>{stats.hospital_received || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#dbeafe', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#dbeafe', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#1e40af', margin: '0 0 10px 0' }}>مرسل للهيئة</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', margin: 0 }}>{stats.submitted_to_authority || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#ede9fe', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#ede9fe', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#5b21b6', margin: '0 0 10px 0' }}>مختوم</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c3aed', margin: 0 }}>{stats.stamped || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#ccfbf1', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#ccfbf1', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#115e59', margin: '0 0 10px 0' }}>مربوط بالمنصة</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0d9488', margin: 0 }}>{stats.linked_to_platform || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#fce7f3', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#fce7f3', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#9d174d', margin: '0 0 10px 0' }}>مرتبط بفاتورة</h4>
             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#db2777', margin: 0 }}>{stats.linked_to_invoice || 0}</p>
           </div>
-          <div style={{ backgroundColor: '#ecfdf5', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#ecfdf5', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
             <h4 style={{ color: '#065f46', margin: '0 0 10px 0' }}>إجمالي المبالغ</h4>
             <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#059669', margin: 0 }}>
               {(stats.total_amount || 0).toLocaleString()} ج.م
@@ -135,7 +135,7 @@ function AuthorityTrackingReport() {
       )}
 
       {/* Progress Tracker */}
-      <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb', marginBottom: '20px' }}>
+      <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '2px solid #e5e7eb', marginBottom: '20px' }}>
         <h3 style={{ color: '#374151', marginBottom: '15px' }}>📊 شريط التقدم</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0', marginBottom: '20px' }}>
           {[
@@ -163,7 +163,7 @@ function AuthorityTrackingReport() {
               </div>
               <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#374151' }}>{step.label}</p>
               {index < 4 && (
-                <div style={{
+                <div style={{ color: '#1e293b',
                   position: 'absolute',
                   top: '20px',
                   right: '-50%',

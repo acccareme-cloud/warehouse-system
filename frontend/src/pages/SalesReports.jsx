@@ -100,7 +100,7 @@ function SalesReports() {
       </div>
 
       {/* Filters */}
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+      <div style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <h4>🔍 فلترة</h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
           <div><label>من:</label><input type="date" value={filters.start_date} onChange={(e) => setFilters({...filters, start_date: e.target.value})} style={{ width: '100%', padding: '8px' }} /></div>
@@ -115,16 +115,16 @@ function SalesReports() {
 
       {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-        <div style={{ backgroundColor: '#dbeafe', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#dbeafe', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#2563eb' }}>عدد الفواتير</h3>
           <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, color: '#1e40af' }}>{summary.count}</p>
         </div>
-        <div style={{ backgroundColor: '#dcfce7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#dcfce7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#059669' }}>إجمالي المبيعات</h3>
           <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, color: '#166534' }}>{summary.total.toFixed(2)} ج.م</p>
         </div>
         {activeReport === 'commissions' && (
-          <div style={{ backgroundColor: '#fef3c7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#fef3c7', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
             <h3 style={{ margin: '0 0 10px 0', color: '#d97706' }}>إجمالي العمولات</h3>
             <p style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, color: '#92400e' }}>{summary.commission.toFixed(2)} ج.م</p>
           </div>

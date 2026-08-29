@@ -92,7 +92,7 @@ function PurchaseApprovals() {
       <h3>📋 طلبات بانتظار الاعتماد ({requests.length})</h3>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', backgroundColor: 'white' }}>
+        <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', marginTop: '10px', backgroundColor: 'white' }}>
           <thead>
             <tr style={{ backgroundColor: '#343a40', color: 'white' }}>
               <th style={thStyle}>رقم الطلب</th>

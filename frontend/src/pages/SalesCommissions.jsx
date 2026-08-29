@@ -124,11 +124,11 @@ function SalesCommissions() {
       )}
 
       {/* ملخص العمولات */}
-      <div style={{ backgroundColor: '#f0fdf4', padding: '20px', borderRadius: '12px', border: '2px solid #059669', marginBottom: '20px' }}>
+      <div style={{ color: '#1e293b', backgroundColor: '#f0fdf4', padding: '20px', borderRadius: '12px', border: '2px solid #059669', marginBottom: '20px' }}>
         <h3 style={{ color: '#059669', marginBottom: '15px' }}>📊 ملخص العمولات</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           {summary.map(s => (
-            <div key={s.employee_id} style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #059669' }}>
+            <div key={s.employee_id} style={{ color: '#1e293b', backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #059669' }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#059669' }}>{s.employee_name}</h4>
               <p style={{ margin: '5px 0', fontSize: '14px' }}>عدد العمولات: {s.total_commissions}</p>
               <p style={{ margin: '5px 0', fontSize: '14px' }}>إجمالي العمولات: {parseFloat(s.total_commission_amount).toLocaleString()} ج.م</p>
@@ -154,7 +154,7 @@ function SalesCommissions() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #059669' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #059669' }}>
           <h3 style={{ color: '#059669', marginBottom: '20px' }}>➕ عمولة جديدة</h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
@@ -200,7 +200,7 @@ function SalesCommissions() {
             </div>
             <div>
               <label>العمولة المحسوبة:</label>
-              <input type="text" value={calculateCommission().toLocaleString() + ' ج.م'} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
+              <input type="text" value={calculateCommission().toLocaleString() + ' ج.م'} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
             </div>
           </div>
 

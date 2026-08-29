@@ -318,7 +318,7 @@ const Quality = () => {
         <div>
           <h2 style={{ marginBottom: '15px' }}>⏳ فواتير بانتظار فحص الجودة</h2>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>#</th>
@@ -380,7 +380,7 @@ const Quality = () => {
         <div>
           <h2 style={{ marginBottom: '15px' }}>✓ فواتير تم فحصها من الجودة</h2>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>#</th>
@@ -436,7 +436,7 @@ const Quality = () => {
         <div>
           <h2 style={{ marginBottom: '15px' }}>🏭 فواتير في انتظار استلام المخزن</h2>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>#</th>
@@ -492,7 +492,7 @@ const Quality = () => {
         <div>
           <h2 style={{ marginBottom: '15px' }}>✅ فواتير تم استلامها</h2>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>#</th>
@@ -627,7 +627,7 @@ const Quality = () => {
 
           <h3 style={{ marginTop: '30px', marginBottom: '10px', color: '#16a34a' }}>✅ فواتير اجتازت الجودة ({salesReviewed.length})</h3>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>رقم الفاتورة</th>
@@ -666,7 +666,7 @@ const Quality = () => {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }} onClick={() => setShowViewModal(false)}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '8px', padding: '30px',
             maxWidth: '800px', width: '90%', maxHeight: '90vh', overflow: 'auto',
             direction: 'rtl'
@@ -682,7 +682,7 @@ const Quality = () => {
             </div>
 
             {/* معلومات الفاتورة */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
               <div><strong>رقم الفاتورة:</strong> {selectedPurchase.purchase_number}</div>
               <div><strong>التاريخ:</strong> {new Date(selectedPurchase.created_at).toLocaleDateString('ar-EG')}</div>
               <div><strong>المورد:</strong> {selectedPurchase.supplier}</div>
@@ -724,7 +724,7 @@ const Quality = () => {
             </table>
 
             {/* ملخص الفاتورة */}
-            <div style={{ backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span>الإجمالي:</span>
                 <strong>{selectedPurchase.total_amount} ج.م</strong>

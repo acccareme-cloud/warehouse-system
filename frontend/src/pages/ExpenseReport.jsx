@@ -308,7 +308,7 @@ function ExpenseReport() {
       </div>
 
       {/* Filters Section */}
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '2px solid #dee2e6' }}>
+      <div style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '2px solid #dee2e6' }}>
         <h3 style={{ marginTop: 0, color: '#333' }}>فلاتر التقرير</h3>
 
         {/* Date Range */}
@@ -335,7 +335,7 @@ function ExpenseReport() {
 
         {/* Regular Expenses Selection */}
         {expenseCategories.length > 0 && (
-          <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd' }}>
+          <div style={{ color: '#1e293b', marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd' }}>
             <h4 style={{ margin: '0 0 15px 0', color: '#1565c0' }}>☑️ المصاريف العادية:</h4>
 
             {expenseCategories.map(parent => (
@@ -392,7 +392,7 @@ function ExpenseReport() {
 
         {/* Custody Settlements Selection */}
         {custodyCategories.length > 0 && (
-          <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd' }}>
+          <div style={{ color: '#1e293b', marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd' }}>
             <h4 style={{ margin: '0 0 15px 0', color: '#c05621' }}>☑️ تسوية العهدة:</h4>
 
             {custodyCategories.map(parent => (
@@ -483,7 +483,7 @@ function ExpenseReport() {
       {reportData && !showDetail && (
         <div>
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#e3f2fd', borderRadius: '12px' }}>
+          <div style={{ color: '#1e293b', textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#e3f2fd', borderRadius: '12px' }}>
             <h2 style={{ margin: '0 0 10px 0', color: '#1565c0' }}>📋 تقرير المصاريف التحليلي</h2>
             <p style={{ color: '#666', marginBottom: '15px' }}>
               الفترة من: <strong>{reportData.from_date}</strong> إلى: <strong>{reportData.to_date}</strong>
@@ -496,7 +496,7 @@ function ExpenseReport() {
           {/* Pivot Table */}
           {rows.length > 0 ? (
             <div style={{ overflowX: 'auto', marginBottom: '30px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', fontSize: '13px', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
                 <thead>
                   <tr>
                     <th style={{ ...thStyle, minWidth: '300px', textAlign: 'right' }}>المصاريف / مراكز التكلفة</th>
@@ -570,7 +570,7 @@ function ExpenseReport() {
               </table>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '12px' }}>
+            <div style={{ color: '#1e293b', textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '12px' }}>
               <p style={{ fontSize: '18px', color: '#666' }}>لا توجد بيانات للفترة المحددة</p>
             </div>
           )}
@@ -589,7 +589,7 @@ function ExpenseReport() {
             </button>
           </div>
 
-          <div style={{ textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#fff3e0', borderRadius: '12px' }}>
+          <div style={{ color: '#1e293b', textAlign: 'center', marginBottom: '20px', padding: '20px', backgroundColor: '#fff3e0', borderRadius: '12px' }}>
             <h3 style={{ margin: '0 0 10px 0', color: '#e65100' }}>📑 تفصيلي: {detailData.name}</h3>
             <p style={{ color: '#666', marginBottom: '15px' }}>
               مركز التكلفة: <strong>{detailData.costCenterName || ''}</strong>
@@ -600,7 +600,7 @@ function ExpenseReport() {
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
               <thead>
                 <tr style={{ backgroundColor: '#4a5568', color: 'white' }}>
                   <th style={thStyle}>م</th>

@@ -97,7 +97,7 @@ function CustodyEmployeesSummaryReport() {
         <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: '#64748b', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🏠 الرئيسية</button>
       </div>
 
-      <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '15px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '15px', alignItems: 'end' }}>
+      <div className="no-print" style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '15px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '15px', alignItems: 'end' }}>
         <div>
           <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>من تاريخ</label>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
@@ -111,12 +111,12 @@ function CustodyEmployeesSummaryReport() {
         </button>
       </div>
 
-      <div className="no-print" style={{ backgroundColor: '#f8fafc', padding: '15px', borderRadius: '12px', marginBottom: '20px' }}>
+      <div className="no-print" style={{ color: '#1e293b', backgroundColor: '#f8fafc', padding: '15px', borderRadius: '12px', marginBottom: '20px' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', marginBottom: '10px', cursor: 'pointer' }}>
           <input type="checkbox" checked={selectAll} onChange={toggleSelectAll} />
           تحديد الكل ({employees.length} موظف)
         </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', maxHeight: '200px', overflowY: 'auto', padding: '10px', backgroundColor: 'white', borderRadius: '8px' }}>
+        <div style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', maxHeight: '200px', overflowY: 'auto', padding: '10px', backgroundColor: 'white', borderRadius: '8px' }}>
           {employees.map(e => (
             <label key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px' }}>
               <input
@@ -145,7 +145,7 @@ function CustodyEmployeesSummaryReport() {
               <h2 style={{ margin: '0 0 5px 0', fontSize: '20px' }}>📊 تقرير أرصدة الموظفين</h2>
               <div style={{ fontSize: '13px', color: '#64748b' }}>الفترة من {report?.from || from} إلى {report?.to || to}</div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>الموظف</th>
@@ -169,7 +169,7 @@ function CustodyEmployeesSummaryReport() {
                     <td style={{ ...tdStyle, fontWeight: 'bold', color: e.closing_balance >= 0 ? '#16a34a' : '#dc2626' }}>{e.closing_balance.toFixed(2)} ج.م</td>
                   </tr>
                 ))}
-                <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#f1f5f9' }}>
                   <td style={tdStyle}><strong>الإجمالي</strong></td>
                   <td style={{ ...tdStyle, fontWeight: 'bold' }}>{report.totals.opening_balance.toFixed(2)} ج.م</td>
                   <td style={{ ...tdStyle, fontWeight: 'bold', color: '#16a34a' }}>{report.totals.total_custody.toFixed(2)} ج.م</td>

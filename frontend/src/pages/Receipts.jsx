@@ -473,7 +473,7 @@ const handleWarehouseChange = (warehouseId) => {
       {/* ═══════════════════════════════════════════════════════════════
           نموذج استلام إذن
       ═══════════════════════════════════════════════════════════════ */}
-      <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '2px solid #dee2e6' }}>
+      <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '2px solid #dee2e6' }}>
         <h3 style={{ color: '#495057', marginBottom: '20px', borderBottom: '2px solid #28a745', paddingBottom: '10px' }}>
           {selectedReceipt?.status === 'posted' ? '✏️ تعديل إذن مخزن' : '📝 استلام إذن مخزن'}
         </h3>
@@ -583,7 +583,7 @@ const handleWarehouseChange = (warehouseId) => {
               return (
                 <div 
                   key={item.id} 
-                  style={{ 
+                  style={{ color: '#1e293b', 
                     backgroundColor: 'white', 
                     padding: '20px', 
                     borderRadius: '12px', 
@@ -640,7 +640,7 @@ const handleWarehouseChange = (warehouseId) => {
                       <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                           <thead>
-                            <tr style={{ backgroundColor: '#e0f2fe' }}>
+                            <tr style={{ color: '#1e293b', backgroundColor: '#e0f2fe' }}>
                               <th style={{ ...thStyle, width: '60px' }}>#</th>
                               <th style={thStyle}>الوحدة</th>
                               <th style={thStyle}>الكمية</th>
@@ -691,7 +691,7 @@ const handleWarehouseChange = (warehouseId) => {
                             ))}
                           </tbody>
                           <tfoot>
-                            <tr style={{ backgroundColor: '#d1fae5', fontWeight: 'bold' }}>
+                            <tr style={{ color: '#1e293b', backgroundColor: '#d1fae5', fontWeight: 'bold' }}>
                               <td colSpan="2" style={tdStyle}>الإجمالي</td>
                               <td style={tdStyle}>{qty}</td>
                               <td style={tdStyle}>-</td>
@@ -706,7 +706,7 @@ const handleWarehouseChange = (warehouseId) => {
 
                   {/* لو الصنف مالوش سريال */}
                   {!item.has_serial && (
-                    <div style={{ 
+                    <div style={{ color: '#1e293b', 
                       padding: '15px', 
                       backgroundColor: '#fff3cd', 
                       borderRadius: '8px',
@@ -878,7 +878,7 @@ const handleWarehouseChange = (warehouseId) => {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }} onClick={() => setShowViewModal(false)}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '8px', padding: '30px',
             maxWidth: '900px', width: '90%', maxHeight: '90vh', overflow: 'auto',
             direction: 'rtl'
@@ -903,7 +903,7 @@ const handleWarehouseChange = (warehouseId) => {
             </div>
 
             {/* Receipt Info */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
               <div><strong>رقم الإذن:</strong> {selectedReceiptForView.voucher_number}</div>
               <div><strong>رقم الفاتورة:</strong> {selectedReceiptForView.purchase_number || '-'}</div>
               <div><strong>المورد:</strong> {selectedReceiptForView.supplier || '-'}</div>
@@ -986,7 +986,7 @@ const handleWarehouseChange = (warehouseId) => {
             {/* Expanded Serials Section */}
             {viewReceiptItems.map((item) => (
               item.has_serial && expandedItemId === item.item_id && (
-                <div key={`serials-${item.item_id}`} style={{ 
+                <div key={`serials-${item.item_id}`} style={{ color: '#1e293b', 
                   backgroundColor: '#f0f9ff', 
                   padding: '15px', 
                   borderRadius: '8px', 
@@ -1040,7 +1040,7 @@ const handleWarehouseChange = (warehouseId) => {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1001,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }} onClick={() => setShowPrintModal(false)}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '8px', padding: '30px',
             maxWidth: '800px', width: '90%', maxHeight: '90vh', overflow: 'auto',
             direction: 'rtl'
@@ -1091,7 +1091,7 @@ const handleWarehouseChange = (warehouseId) => {
 
                   <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f0f0f0' }}>
+                      <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0' }}>
                         <th style={{ border: '1px solid #333', padding: '8px' }}>#</th>
                         <th style={{ border: '1px solid #333', padding: '8px' }}>الصنف</th>
                         <th style={{ border: '1px solid #333', padding: '8px' }}>الكمية</th>
@@ -1113,7 +1113,7 @@ const handleWarehouseChange = (warehouseId) => {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                      <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                         <td colSpan="5" style={{ border: '1px solid #333', padding: '8px', textAlign: 'left' }}>الإجمالي الكلي:</td>
                         <td style={{ border: '1px solid #333', padding: '8px', textAlign: 'center' }}>
                           {printData.items.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0).toFixed(2)} ج.م
@@ -1172,7 +1172,7 @@ const handleWarehouseChange = (warehouseId) => {
                   <h3 style={{ marginBottom: '15px' }}>🔢 قائمة السريالات ({printData.serials.length})</h3>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f0f0f0' }}>
+                      <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0' }}>
                         <th style={{ border: '1px solid #333', padding: '8px' }}>#</th>
                         <th style={{ border: '1px solid #333', padding: '8px' }}>السريال / IMEI</th>
                         <th style={{ border: '1px solid #333', padding: '8px' }}>الحالة</th>

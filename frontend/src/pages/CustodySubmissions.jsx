@@ -317,7 +317,7 @@ const CustodySubmissions = () => {
           <div style={styles.grid}>
             <div style={styles.inputGroup}>
               <label style={styles.label}>رقم التقديم</label>
-              <input type="text" value={formData.submission_number} readOnly style={{...styles.input, backgroundColor: '#f3f4f6'}} />
+              <input type="text" value={formData.submission_number} readOnly style={{ color: '#1e293b',...styles.input, backgroundColor: '#f3f4f6'}} />
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>العهدة *</label>
@@ -342,7 +342,7 @@ const CustodySubmissions = () => {
           </div>
 
           {selectedCustody && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', margin: '15px 0', padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', margin: '15px 0', padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div><span style={{ fontSize: '12px', color: '#6b7280' }}>مبلغ العهدة</span><br/><strong>{parseFloat(selectedCustody.amount || 0).toFixed(2)} ج.م</strong></div>
               <div><span style={{ fontSize: '12px', color: '#6b7280' }}>المتبقي</span><br/><strong style={{ color: '#d97706' }}>{parseFloat(selectedCustody.remaining_amount || 0).toFixed(2)} ج.م</strong></div>
               <div><span style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي التسوية</span><br/><strong style={{ color: '#dc2626' }}>{getTotalAmount().toFixed(2)} ج.م</strong></div>

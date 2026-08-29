@@ -513,7 +513,7 @@ function WarehouseIssues() {
 
       {/* Manual Voucher Form */}
       {showManualForm && (
-        <form onSubmit={handleSubmitManual} style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #dc2626' }}>
+        <form onSubmit={handleSubmitManual} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #dc2626' }}>
           <h3 style={{ color: '#dc2626', marginBottom: '20px' }}>{editingVoucher ? `✏️ تعديل إذن الصرف ${editingVoucher.voucher_number}` : '➕ إذن صرف مخزن يدوي'}</h3>
           {editingVoucher && (
             <p style={{ padding: '10px', background: '#fff3cd', borderRadius: '6px', color: '#856404', fontSize: '13px', marginBottom: '15px' }}>
@@ -524,7 +524,7 @@ function WarehouseIssues() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             <div>
               <label>رقم الإذن (تلقائي):</label>
-              <input type="text" value={formData.voucher_number} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
+              <input type="text" value={formData.voucher_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
             </div>
             <div>
               <label>تاريخ الإذن:</label>
@@ -666,7 +666,7 @@ function WarehouseIssues() {
                       </div>
                       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '8px' }}>
                         <thead>
-                          <tr style={{ backgroundColor: '#e2e8f0' }}>
+                          <tr style={{ color: '#1e293b', backgroundColor: '#e2e8f0' }}>
                             <th style={{ ...thStyle, padding: '8px' }}>الصنف</th>
                             <th style={{ ...thStyle, padding: '8px' }}>كود الصنف</th>
                             <th style={{ ...thStyle, padding: '8px' }}>الكمية</th>
@@ -880,14 +880,14 @@ function WarehouseIssues() {
       {issueModal.open && issueModal.invoice && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
           onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' })}>
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '750px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
+          <div style={{ color: '#1e293b', backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '750px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: '#dc2626' }}>📦 صرف من مخزن: {issueModal.warehouseName}</h3>
               <button onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' })} style={{ padding: '5px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px' }}>
               <div><strong>الفاتورة:</strong> {issueModal.invoice.invoice_number}</div>
               <div><strong>العميل:</strong> {issueModal.invoice.customer_name_display || issueModal.invoice.customer_name}</div>
               <div><strong>أصناف هذا المخزن:</strong> {issueModal.lines.length}</div>

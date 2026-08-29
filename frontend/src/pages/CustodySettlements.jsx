@@ -245,7 +245,7 @@ function CustodySettlements() {
 
       {/* التقديمات المعتمدة */}
       <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px', color: '#1e293b' }}>📋 تقديمات بانتظار التسوية المالية</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
+      <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
         <thead>
           <tr>
             <th style={thStyle}>رقم التقديم</th>
@@ -294,35 +294,35 @@ function CustodySettlements() {
 
       {/* نموذج التسوية */}
       {showForm && selectedSubmission && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '2px solid #dc2626' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '2px solid #dc2626' }}>
           <h3 style={{ color: '#dc2626', fontSize: '18px', fontWeight: 'bold', marginBottom: '15px' }}>
             💰 تسوية تقديم: {selectedSubmission.submission_number}
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '20px' }}>
-            <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ color: '#1e293b', backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>الموظف</span>
               <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{selectedSubmission.employee_name || '-'}</span>
             </div>
-            <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ color: '#1e293b', backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>مبلغ العهدة الأصلي</span>
               <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{formatMoney(selectedSubmission.custody_original_amount)}</span>
             </div>
-            <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ color: '#1e293b', backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>المتبقي من العهدة</span>
               <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#d97706' }}>{formatMoney(selectedSubmission.custody_remaining)}</span>
             </div>
-            <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ color: '#1e293b', backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>مبلغ التقديم (المصروفات)</span>
               <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#dc2626' }}>{formatMoney(selectedSubmission.total_amount)}</span>
             </div>
-            <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ color: '#1e293b', backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>الفرق</span>
               <span style={{ fontWeight: 'bold', fontSize: '15px', color: isOver ? '#dc2626' : isUnder ? '#2563eb' : '#16a34a' }}>
                 {isExact ? '✓ مطابق' : isOver ? `+${formatMoney(difference)} زيادة` : `${formatMoney(difference)} نقص`}
               </span>
             </div>
-            <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ color: '#1e293b', backgroundColor: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
               <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>العملة</span>
               <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{selectedSubmission.currency || 'EGP'}</span>
             </div>
@@ -350,7 +350,7 @@ function CustodySettlements() {
           )}
 
           <h4 style={{ fontWeight: 'bold', marginBottom: '10px', color: '#374151' }}>تفاصيل المصروفات:</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+          <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', marginBottom: '20px', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
             <thead>
               <tr style={{ backgroundColor: '#374151' }}>
                 <th style={{...thStyle, backgroundColor: '#374151'}}>البند</th>
@@ -396,7 +396,7 @@ function CustodySettlements() {
         <>
 
       <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px', color: '#1e293b' }}>📋 سجل التسويات المالية</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+      <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
         <thead>
           <tr style={{ backgroundColor: '#1e293b', color: 'white' }}>
             <th style={thStyle}>رقم التسوية</th>
@@ -418,7 +418,7 @@ function CustodySettlements() {
                 <td style={tdStyle}>{s.settlement_date ? new Date(s.settlement_date).toLocaleDateString('ar-EG') : new Date(s.created_at).toLocaleDateString('ar-EG')}</td>
                 <td style={tdStyle}>{s.custody_number}</td>
                 <td style={tdStyle}>{s.employee_name}</td>
-                <td style={tdStyle}><span style={{ backgroundColor: '#dbeafe', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>{s.items.length} بند</span></td>
+                <td style={tdStyle}><span style={{ color: '#1e293b', backgroundColor: '#dbeafe', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>{s.items.length} بند</span></td>
                 <td style={tdStyle}><strong style={{ color: '#dc2626' }}>{formatMoney(s.total_amount)}</strong></td>
                 <td style={tdStyle}>
                   <div style={{ display: 'flex', gap: '6px' }}>
@@ -443,7 +443,7 @@ function CustodySettlements() {
           <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '15px', color: '#991b1b' }}>
             🗑️ التسويات الملغاة
           </h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+          <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <thead>
               <tr style={{ backgroundColor: '#1e293b', color: 'white' }}>
                 <th style={thStyle}>رقم التسوية</th>
@@ -460,7 +460,7 @@ function CustodySettlements() {
                 <tr><td colSpan="7" style={{...tdStyle, textAlign: 'center', color: '#6b7280', padding: '30px'}}>لا يوجد تسويات ملغاة</td></tr>
               ) : (
                 deletedSettlements.map((s, idx) => (
-                  <tr key={idx} style={{ backgroundColor: '#fef2f2' }}>
+                  <tr key={idx} style={{ color: '#1e293b', backgroundColor: '#fef2f2' }}>
                     <td style={tdStyle}><strong>{s.settlement_number}</strong></td>
                     <td style={tdStyle}>{new Date(s.settlement_date).toLocaleDateString('ar-EG')}</td>
                     <td style={tdStyle}>{s.custody_number}</td>

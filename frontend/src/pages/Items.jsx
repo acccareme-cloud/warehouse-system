@@ -346,7 +346,7 @@ function Items() {
           </div>
 
           {showForm && (
-            <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+            <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
               <h3>{editingItem ? 'تعديل صنف' : 'إضافة صنف جديد'}</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
                 <div>
@@ -425,7 +425,7 @@ function Items() {
                   <td style={tdStyle}>{item.name}</td>
                   <td style={tdStyle}>{item.category_name || '-'}</td>
                   <td style={tdStyle}>
-                    <span style={{ backgroundColor: '#e3f2fd', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                    <span style={{ color: '#1e293b', backgroundColor: '#e3f2fd', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
                       {item.unit || '-'}
                     </span>
                   </td>
@@ -460,7 +460,7 @@ function Items() {
           </div>
 
           {showCategoryForm && (
-            <form onSubmit={handleCategorySubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+            <form onSubmit={handleCategorySubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
               <h3>{editingCategory ? 'تعديل تصنيف' : 'إضافة تصنيف'}</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                 <div>
@@ -526,7 +526,7 @@ function Items() {
           </div>
 
           {showWarehouseForm && (
-            <form onSubmit={handleWarehouseSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+            <form onSubmit={handleWarehouseSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
               <h3>{editingWarehouse ? 'تعديل مخزن' : 'إضافة مخزن'}</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                 <div>
@@ -621,7 +621,7 @@ function Items() {
           </div>
 
           {showUnitForm && (
-            <form onSubmit={handleUnitSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+            <form onSubmit={handleUnitSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
               <h3>{editingUnit ? 'تعديل وحدة' : 'إضافة وحدة'}</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                 <div>
@@ -651,11 +651,11 @@ function Items() {
           <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, backgroundColor: '#fd7e14' }}>الاسم</th>
-                <th style={{ ...thStyle, backgroundColor: '#fd7e14' }}>الرمز</th>
-                <th style={{ ...thStyle, backgroundColor: '#fd7e14' }}>معامل التحويل</th>
-                <th style={{ ...thStyle, backgroundColor: '#fd7e14' }}>وحدة أساسية</th>
-                <th style={{ ...thStyle, backgroundColor: '#fd7e14' }}>إجراءات</th>
+                <th style={{ color: '#1e293b', ...thStyle, backgroundColor: '#fd7e14' }}>الاسم</th>
+                <th style={{ color: '#1e293b', ...thStyle, backgroundColor: '#fd7e14' }}>الرمز</th>
+                <th style={{ color: '#1e293b', ...thStyle, backgroundColor: '#fd7e14' }}>معامل التحويل</th>
+                <th style={{ color: '#1e293b', ...thStyle, backgroundColor: '#fd7e14' }}>وحدة أساسية</th>
+                <th style={{ color: '#1e293b', ...thStyle, backgroundColor: '#fd7e14' }}>إجراءات</th>
               </tr>
             </thead>
             <tbody>

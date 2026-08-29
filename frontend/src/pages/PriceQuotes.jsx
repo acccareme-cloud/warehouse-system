@@ -192,13 +192,13 @@ function PriceQuotes() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #7c3aed' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '12px', marginBottom: '20px', border: '3px solid #7c3aed' }}>
           <h3 style={{ color: '#7c3aed', marginBottom: '20px' }}>➕ بيان سعر جديد</h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             <div>
               <label>رقم البيان (تلقائي):</label>
-              <input type="text" value={formData.quote_number} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
+              <input type="text" value={formData.quote_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0' }} />
             </div>
             <div>
               <label>تاريخ البيان:</label>
@@ -269,7 +269,7 @@ function PriceQuotes() {
             ➕ إضافة صنف
           </button>
 
-          <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '2px solid #e5e7eb', marginBottom: '15px' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '2px solid #e5e7eb', marginBottom: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span>الإجمالي:</span>
               <strong>{subtotal.toLocaleString()} ج.م</strong>

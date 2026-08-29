@@ -114,7 +114,7 @@ function Movements() {
 
       {message && <p style={{ padding: '10px', backgroundColor: message.includes('نجاح') ? '#d4edda' : '#f8d7da', borderRadius: '4px' }}>{message}</p>}
 
-      <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+      <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
         <h3>تسجيل حركة مخزون</h3>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
@@ -173,7 +173,7 @@ function Movements() {
         </div>
 
         {/* حسابات الضرائب */}
-        <div style={{ backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px', marginTop: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px', marginTop: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '12px', color: '#64748b' }}>الاجمالي</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1e293b' }}>{calculations.subtotal} ج.م</div>

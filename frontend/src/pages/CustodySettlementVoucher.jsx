@@ -87,7 +87,7 @@ function CustodySettlementVoucher() {
         <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: '#64748b', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🏠 الرئيسية</button>
       </div>
 
-      <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
+      <div className="no-print" style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
         <div>
           <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>1. اختر الموظف</label>
           <select value={employeeId} onChange={e => handleEmployeeChange(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}>
@@ -127,7 +127,7 @@ function CustodySettlementVoucher() {
             </button>
           </div>
 
-          <div id="printable-area" style={{ border: '2px solid #1e293b', borderRadius: '12px', padding: '25px', backgroundColor: 'white' }}>
+          <div id="printable-area" style={{ color: '#1e293b', border: '2px solid #1e293b', borderRadius: '12px', padding: '25px', backgroundColor: 'white' }}>
             {/* عنوان السند */}
             <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #1e293b', paddingBottom: '15px' }}>
               <h2 style={{ margin: '0 0 5px 0', fontSize: '24px' }}>سند تسوية عهدة</h2>
@@ -140,24 +140,24 @@ function CustodySettlementVoucher() {
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', border: '1px solid #ccc' }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc', width: '20%' }}>الموظف</td>
+                  <td style={{ color: '#1e293b', padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc', width: '20%' }}>الموظف</td>
                   <td style={{ padding: '8px 12px', border: '1px solid #ccc', width: '30%' }}>
                     {voucher.header.employee_name} {voucher.header.employee_number ? `(${voucher.header.employee_number})` : ''}
                   </td>
-                  <td style={{ padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc', width: '20%' }}>تاريخ التسوية</td>
+                  <td style={{ color: '#1e293b', padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc', width: '20%' }}>تاريخ التسوية</td>
                   <td style={{ padding: '8px 12px', border: '1px solid #ccc', width: '30%' }}>
                     {new Date(voucher.header.settlement_date).toLocaleDateString('ar-EG')}
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>رقم العهدة</td>
+                  <td style={{ color: '#1e293b', padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>رقم العهدة</td>
                   <td style={{ padding: '8px 12px', border: '1px solid #ccc' }}>{voucher.header.custody_number}</td>
-                  <td style={{ padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>غرض العهدة</td>
+                  <td style={{ color: '#1e293b', padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>غرض العهدة</td>
                   <td style={{ padding: '8px 12px', border: '1px solid #ccc' }}>{voucher.header.custody_purpose || '-'}</td>
                 </tr>
                 {voucher.header.created_by_name && (
                   <tr>
-                    <td style={{ padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>تم الإدخال بواسطة</td>
+                    <td style={{ color: '#1e293b', padding: '8px 12px', border: '1px solid #ccc', fontWeight: 'bold', backgroundColor: '#f8fafc' }}>تم الإدخال بواسطة</td>
                     <td style={{ padding: '8px 12px', border: '1px solid #ccc' }} colSpan={3}>{voucher.header.created_by_name}</td>
                   </tr>
                 )}
@@ -193,7 +193,7 @@ function CustodySettlementVoucher() {
                     </td>
                   </tr>
                 ))}
-                <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#f1f5f9', fontWeight: 'bold' }}>
                   <td style={{ padding: '10px', border: '1px solid #333', textAlign: 'center' }} colSpan={5}>الإجمالي</td>
                   <td style={{ padding: '10px', border: '1px solid #333', textAlign: 'right', color: '#dc2626' }}>
                     {voucher.total_amount.toFixed(2)}

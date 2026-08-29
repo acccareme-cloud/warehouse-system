@@ -101,7 +101,7 @@ function BankAccounts() {
       </button>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #28a745' }}>
+        <form onSubmit={handleSubmit} style={{ color: '#1e293b', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #28a745' }}>
           <h3>{editingId ? '✏️ تعديل حساب' : '➕ إضافة حساب جديد'}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
             <div>
@@ -161,7 +161,7 @@ function BankAccounts() {
                   <td style={tdStyle}>{a.branch || '-'}</td>
                   <td style={tdStyle}><strong>{parseFloat(a.current_balance || 0).toFixed(2)} ج.م</strong></td>
                   <td style={tdStyle}>
-                    <button onClick={() => handleEdit(a)} style={{ padding: '5px 10px', backgroundColor: '#ffc107', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '5px' }}>✏️</button>
+                    <button onClick={() => handleEdit(a)} style={{ color: '#1e293b', padding: '5px 10px', backgroundColor: '#ffc107', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '5px' }}>✏️</button>
                     <button onClick={() => handleDelete(a.id)} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🗑️</button>
                   </td>
                 </tr>

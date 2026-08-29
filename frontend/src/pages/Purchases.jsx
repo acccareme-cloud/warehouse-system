@@ -482,7 +482,7 @@ function Purchases() {
       </div>
 
       {showImportForm && (
-        <div style={{ backgroundColor: '#fff3cd', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #ffc107' }}>
+        <div style={{ color: '#1e293b', backgroundColor: '#fff3cd', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '2px solid #ffc107' }}>
           <h3 style={{ color: '#856404', marginBottom: '15px' }}>📥 أوامر شراء معتمدة</h3>
           {approvedOrders.length === 0 ? (
             <p>لا يوجد أوامر شراء معتمدة</p>
@@ -502,7 +502,7 @@ function Purchases() {
               </thead>
               <tbody>
                 {approvedOrders.map(o => (
-                  <tr key={o.id} style={{ backgroundColor: 'white' }}>
+                  <tr key={o.id} style={{ color: '#1e293b', backgroundColor: 'white' }}>
                     <td style={tdStyle}><strong>{o.order_number}</strong></td>
                     <td style={tdStyle}>{o.supplier}</td>
                     <td style={tdStyle}>
@@ -517,7 +517,7 @@ function Purchases() {
                     </td>
                     <td style={tdStyle}>
                       {o.items && o.items.length > 0 ? o.items.map((item, idx) => (
-                        <span key={idx} style={{ backgroundColor: '#e3f2fd', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                        <span key={idx} style={{ color: '#1e293b', backgroundColor: '#e3f2fd', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
                           {item.unit || 'عدد'}
                         </span>
                       )) : '-'}
@@ -549,7 +549,7 @@ function Purchases() {
           </h3>
 
           {['finance', 'admin'].includes(userRole) && (
-            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107' }}>
+            <div style={{ color: '#1e293b', marginBottom: '20px', padding: '15px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107' }}>
               <h4 style={{ marginBottom: '10px', color: '#856404' }}>⚙️ تحكم الضرائب (المدير المالي)</h4>
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -569,7 +569,7 @@ function Purchases() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رقم الفاتورة:</label>
-              <input type="text" value={formData.purchase_number} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px' }} />
+              <input type="text" value={formData.purchase_number} readOnly style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px' }} />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>المورد:</label>
@@ -609,7 +609,7 @@ function Purchases() {
               </button>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
               <thead>
                 <tr style={{ backgroundColor: '#343a40', color: 'white' }}>
                   <th style={{...thStyle, width: '30%'}}>الصنف</th>
@@ -639,7 +639,7 @@ function Purchases() {
                     </td>
                     <td style={tdStyle}>
                       <input type="text" value={item.unit} readOnly
-                        style={{ width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }} />
+                        style={{ color: '#1e293b', width: '100%', padding: '8px', backgroundColor: '#e2e8f0', border: '1px solid #ddd', borderRadius: '4px', textAlign: 'center' }} />
                     </td>
                     <td style={tdStyle}>
                       <input type="number" step="0.01" min="0" value={item.unit_price} onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
@@ -662,7 +662,7 @@ function Purchases() {
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
                   <td colSpan="4" style={{...tdStyle, textAlign: 'left'}}>الإجمالي:</td>
                   <td style={tdStyle}><strong style={{ color: '#007bff' }}>{calculations.subtotal} ج.م</strong></td>
                   <td colSpan="2"></td>
@@ -683,7 +683,7 @@ function Purchases() {
             {selectedFiles.length > 0 && <p style={{ color: '#0d9488', marginTop: '5px' }}>تم اختيار {selectedFiles.length} ملف</p>}
           </div>
 
-          <div style={{ backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px', marginTop: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+          <div style={{ color: '#1e293b', backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px', marginTop: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '12px' }}>الاجمالي</div>
               <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{calculations.subtotal} ج.م</div>
@@ -827,7 +827,7 @@ function Purchases() {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }} onClick={() => setShowViewModal(false)}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '8px', padding: '30px',
             maxWidth: '900px', width: '90%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl'
           }} onClick={(e) => e.stopPropagation()}>
@@ -838,7 +838,7 @@ function Purchases() {
                 ✕ إغلاق
               </button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
               <div><strong>رقم الفاتورة:</strong> {selectedPurchase.purchase_number}</div>
               <div><strong>التاريخ:</strong> {new Date(selectedPurchase.created_at).toLocaleDateString('ar-EG')}</div>
               <div><strong>المورد:</strong> {selectedPurchase.supplier}</div>
@@ -881,7 +881,7 @@ function Purchases() {
               </tbody>
             </table>
 
-            <div style={{ backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px' }}>
+            <div style={{ color: '#1e293b', backgroundColor: '#e2e8f0', padding: '15px', borderRadius: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span>الإجمالي:</span><strong>{selectedPurchase.total_amount} ج.م</strong>
               </div>
@@ -902,7 +902,7 @@ function Purchases() {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }} onClick={() => setShowPrintModal(false)}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '8px', padding: '30px',
             maxWidth: '900px', width: '90%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl'
           }} onClick={(e) => e.stopPropagation()}>
@@ -937,7 +937,7 @@ function Purchases() {
               </table>
               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#f0f0f0' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0' }}>
                     <th style={{ border: '1px solid #333', padding: '8px' }}>#</th>
                     <th style={{ border: '1px solid #333', padding: '8px' }}>الصنف</th>
                     <th style={{ border: '1px solid #333', padding: '8px' }}>الكمية</th>
@@ -970,19 +970,19 @@ function Purchases() {
                   )}
                 </tbody>
                 <tfoot>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{ border: '1px solid #333', padding: '8px', textAlign: 'left' }}>الإجمالي:</td>
                     <td style={{ border: '1px solid #333', padding: '8px', textAlign: 'center' }}><strong>{selectedPurchase.total_amount} ج.م</strong></td>
                   </tr>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{ border: '1px solid #333', padding: '8px', textAlign: 'left' }}>ضريبة 14%:</td>
                     <td style={{ border: '1px solid #333', padding: '8px', textAlign: 'center' }}>{selectedPurchase.tax_14_percent} ج.م</td>
                   </tr>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                     <td colSpan="5" style={{ border: '1px solid #333', padding: '8px', textAlign: 'left' }}>خصم ضريبي:</td>
                     <td style={{ border: '1px solid #333', padding: '8px', textAlign: 'center' }}>{selectedPurchase.tax_discount_amount} ج.م</td>
                   </tr>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold', fontSize: '18px' }}>
+                  <tr style={{ color: '#1e293b', backgroundColor: '#f0f0f0', fontWeight: 'bold', fontSize: '18px' }}>
                     <td colSpan="5" style={{ border: '1px solid #333', padding: '8px', textAlign: 'left' }}>الصافي:</td>
                     <td style={{ border: '1px solid #333', padding: '8px', textAlign: 'center' }}><strong>{selectedPurchase.net_amount} ج.م</strong></td>
                   </tr>

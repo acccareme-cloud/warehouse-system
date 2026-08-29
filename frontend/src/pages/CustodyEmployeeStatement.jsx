@@ -77,7 +77,7 @@ function CustodyEmployeeStatement() {
         <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: '#64748b', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🏠 الرئيسية</button>
       </div>
 
-      <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '15px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px', alignItems: 'end' }}>
+      <div className="no-print" style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '15px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px', alignItems: 'end' }}>
         <div>
           <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>الموظف</label>
           <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}>
@@ -120,7 +120,7 @@ function CustodyEmployeeStatement() {
               </div>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
+            <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
               <thead>
                 <tr>
                   <th style={thStyle}>التاريخ</th>
@@ -133,7 +133,7 @@ function CustodyEmployeeStatement() {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#f1f5f9' }}>
                   <td style={tdStyle} colSpan={6}><strong>الرصيد السابق ({report.from})</strong></td>
                   <td style={tdStyle}><strong>{report.opening_balance.toFixed(2)}</strong></td>
                 </tr>
@@ -152,7 +152,7 @@ function CustodyEmployeeStatement() {
                     </tr>
                   ))
                 )}
-                <tr style={{ backgroundColor: '#f1f5f9' }}>
+                <tr style={{ color: '#1e293b', backgroundColor: '#f1f5f9' }}>
                   <td style={tdStyle} colSpan={6}><strong>الرصيد الختامي ({report.to})</strong></td>
                   <td style={tdStyle}><strong>{report.closing_balance.toFixed(2)}</strong></td>
                 </tr>

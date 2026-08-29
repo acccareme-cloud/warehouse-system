@@ -891,7 +891,7 @@ function Treasury() {
             {' '}({filterByPayment(transactions.filter(t => t.transaction_type === 'outcome' || OUTCOME_TYPES.some(it => it.value === t.transaction_type))).length})
           </h3>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{
+            <table style={{ color: '#1e293b',
               width: '100%',
               borderCollapse: 'collapse',
               fontSize: '13px',
@@ -1118,7 +1118,7 @@ function Treasury() {
             {' '}({filterByPayment(transactions.filter(t => t.transaction_type === 'income' || INCOME_TYPES.some(it => it.value === t.transaction_type))).length})
           </h3>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{
+            <table style={{ color: '#1e293b',
               width: '100%',
               borderCollapse: 'collapse',
               fontSize: '13px',
@@ -1281,7 +1281,7 @@ function Treasury() {
                   gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                   gap: '10px'
                 }}>
-                  <div style={{
+                  <div style={{ color: '#1e293b',
                     backgroundColor: '#d1fae5', padding: '12px', borderRadius: '10px',
                     textAlign: 'center', border: '2px solid #28a745'
                   }}>
@@ -1290,7 +1290,7 @@ function Treasury() {
                       {(balance.cash?.[curr]?.in || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div style={{
+                  <div style={{ color: '#1e293b',
                     backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px',
                     textAlign: 'center', border: '2px solid #dc3545'
                   }}>
@@ -1299,7 +1299,7 @@ function Treasury() {
                       {(balance.cash?.[curr]?.out || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div style={{
+                  <div style={{ color: '#1e293b',
                     backgroundColor: '#dbeafe', padding: '12px', borderRadius: '10px',
                     textAlign: 'center', border: '2px solid #2563eb'
                   }}>
@@ -1308,7 +1308,7 @@ function Treasury() {
                       {(balance.cash?.[curr]?.balance || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div style={{
+                  <div style={{ color: '#1e293b',
                     backgroundColor: '#d1fae5', padding: '12px', borderRadius: '10px',
                     textAlign: 'center', border: '2px solid #059669'
                   }}>
@@ -1317,7 +1317,7 @@ function Treasury() {
                       {(balance.bank?.[curr]?.in || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div style={{
+                  <div style={{ color: '#1e293b',
                     backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px',
                     textAlign: 'center', border: '2px solid #991b1b'
                   }}>
@@ -1326,7 +1326,7 @@ function Treasury() {
                       {(balance.bank?.[curr]?.out || 0).toFixed(2)}
                     </div>
                   </div>
-                  <div style={{
+                  <div style={{ color: '#1e293b',
                     backgroundColor: '#dbeafe', padding: '12px', borderRadius: '10px',
                     textAlign: 'center', border: '2px solid #1e40af'
                   }}>
@@ -1338,7 +1338,7 @@ function Treasury() {
                 </div>
               </div>
             ))}
-            <div style={{
+            <div style={{ color: '#1e293b',
               backgroundColor: '#f3e8ff', padding: '15px', borderRadius: '12px',
               textAlign: 'center', border: '2px solid #7c3aed'
             }}>
@@ -1355,7 +1355,7 @@ function Treasury() {
       {/* ═══ FORM (Shared for Income & Outcome) ═══ */}
       {/* ═══════════════════════════════════════ */}
       {showForm && (
-        <div style={{
+        <div style={{ color: '#1e293b',
           backgroundColor: '#ffffff', padding: '24px', borderRadius: '12px',
           boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', marginBottom: '20px', border: '1px solid #e5e7eb'
         }}>
@@ -1574,14 +1574,14 @@ function Treasury() {
 
             {/* ═══ EXPENSE ITEMS (Multi-line) ═══ */}
             {selectedType === 'expense' && (
-              <div style={{
+              <div style={{ color: '#1e293b',
                 marginTop: '20px', padding: '16px', backgroundColor: '#fef3c7',
                 borderRadius: '10px', border: '2px solid #f59e0b'
               }}>
                 <h4 style={{ margin: '0 0 12px 0', color: '#92400e' }}>
                   📊 بنود المصروف (المجموع لازم = {formData.amount || 0})
                 </h4>
-                <table style={{
+                <table style={{ color: '#1e293b',
                   width: '100%', borderCollapse: 'collapse', fontSize: '13px',
                   backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden'
                 }}>
@@ -1644,7 +1644,7 @@ function Treasury() {
             )}
 
             {/* ═══ FILE UPLOAD ═══ */}
-            <div style={{
+            <div style={{ color: '#1e293b',
               marginTop: '20px', padding: '16px', backgroundColor: '#dbeafe',
               borderRadius: '10px', border: '2px solid #2563eb'
             }}>
@@ -1655,7 +1655,7 @@ function Treasury() {
                 <div style={{ marginTop: '10px' }}>
                   <strong>المرفقات الحالية:</strong>
                   {existingAttachments.map(att => (
-                    <div key={att.id} style={{
+                    <div key={att.id} style={{ color: '#1e293b',
                       display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px',
                       backgroundColor: 'white', padding: '8px', borderRadius: '6px'
                     }}>
@@ -1679,7 +1679,7 @@ function Treasury() {
 
             {/* ═══ SKIP WORKFLOW CHECKBOX (Admin/Finance only) ═══ */}
             {(role === 'admin' || role === 'finance') && !editingId && (
-              <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '2px solid #f59e0b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ color: '#1e293b', marginTop: '20px', padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '2px solid #f59e0b', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <input
                   type="checkbox"
                   id="skipWorkflow"
@@ -1716,7 +1716,7 @@ function Treasury() {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
         }}>
-          <div id="print-statement" style={{
+          <div id="print-statement" style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '12px', maxWidth: '1100px',
             width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '24px', direction: 'rtl'
           }}>
@@ -1766,19 +1766,19 @@ function Treasury() {
             {statementData && (
               <div>
                 <div style={{ display: 'flex', gap: '20px', marginBottom: '15px', flexWrap: 'wrap' }}>
-                  <div style={{ backgroundColor: '#dbeafe', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold' }}>
+                  <div style={{ color: '#1e293b', backgroundColor: '#dbeafe', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold' }}>
                     الرصيد الافتتاحي: {statementData.opening_balance?.toFixed(2)}
                   </div>
-                  <div style={{ backgroundColor: '#d1fae5', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold' }}>
+                  <div style={{ color: '#1e293b', backgroundColor: '#d1fae5', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold' }}>
                     الرصيد الختامي: {statementData.closing_balance?.toFixed(2)}
                   </div>
-                  <div style={{ backgroundColor: '#f3f4f6', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold' }}>
+                  <div style={{ color: '#1e293b', backgroundColor: '#f3f4f6', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold' }}>
                     عدد الحركات: {statementData.count}
                   </div>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#f3f4f6' }}>
+                    <tr style={{ color: '#1e293b', backgroundColor: '#f3f4f6' }}>
                       <th style={thStyle}>#</th>
                       <th style={thStyle}>التاريخ</th>
                       <th style={thStyle}>رقم السند</th>
@@ -1819,7 +1819,7 @@ function Treasury() {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
         }}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '12px', maxWidth: '500px',
             width: '100%', padding: '24px', direction: 'rtl', textAlign: 'center'
           }}>
@@ -1851,7 +1851,7 @@ function Treasury() {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
         }}>
-          <div style={{
+          <div style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '12px', maxWidth: '500px',
             width: '100%', padding: '24px', direction: 'rtl'
           }}>
@@ -1885,7 +1885,7 @@ function Treasury() {
           backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
         }}>
-          <div id="print-voucher" style={{
+          <div id="print-voucher" style={{ color: '#1e293b',
             backgroundColor: 'white', borderRadius: '12px', maxWidth: '700px',
             width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '32px', direction: 'rtl'
           }}>
@@ -1937,12 +1937,12 @@ function Treasury() {
             </div>
 
             {viewModal.items && viewModal.items.length > 0 && (
-              <div style={{
+              <div style={{ color: '#1e293b',
                 marginBottom: '20px', backgroundColor: '#fef3c7',
                 padding: '12px', borderRadius: '8px', border: '1px solid #f59e0b'
               }}>
                 <h4 style={{ margin: '0 0 8px 0', color: '#92400e' }}>📊 بنود المصروف</h4>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', backgroundColor: 'white' }}>
+                <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', fontSize: '12px', backgroundColor: 'white' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f59e0b', color: 'white' }}>
                       <th style={{ padding: '6px' }}>البند</th>
@@ -1965,7 +1965,7 @@ function Treasury() {
               </div>
             )}
 
-            <div style={{
+            <div style={{ color: '#1e293b',
               backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px',
               marginBottom: '20px', border: '1px solid #e5e7eb'
             }}>

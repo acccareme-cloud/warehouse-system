@@ -407,7 +407,7 @@ const CustodyApprovals = () => {
           {editMode ? (
             <div>
               {editDetails.map((detail, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 2fr 1fr auto', gap: '8px', marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <div key={i} style={{ color: '#1e293b', display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 2fr 1fr auto', gap: '8px', marginBottom: '8px', padding: '8px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                   <select value={detail.expense_category_id} onChange={e => updateEditDetail(i, 'expense_category_id', e.target.value)} style={styles.select}>
                     <option value="">اختر البند...</option>
                     {expenseCategories.map(ec => <option key={ec.id} value={ec.id}>{ec.category_code} - {ec.category_name}</option>)}
