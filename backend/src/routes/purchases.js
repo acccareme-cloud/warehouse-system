@@ -878,68 +878,109 @@ router.put('/:id/post', verifyToken, requireRole('finance', 'admin'), async (req
 
     const receipt = receiptResult.rows[0];
 
-    // 1. حركة مخزن
-    const qty = parseFloat(receipt.received_quantity || purchase.quantity);
-    const price = parseFloat(purchase.unit_price);
-
-    await client.query(`
-      INSERT INTO inventory_movements (
-        movement_type, item_id, warehouse_id, quantity, unit_price, 
-        total_amount, reference_type, reference_id, notes, created_by
-      ) VALUES ('in', $1, $2, $3, $4, $5, 'purchase', $6, 'إضافة مخزن من فاتورة مشتريات', $7)
-    `, [
-      purchase.item_id,
-      purchase.warehouse_id,
-      qty,
-      price,
-      purchase.net_amount,
-      purchase.id,
-      req.user.id
-    ]);
-
-    // 2. تحديث رصيد المخزن
-    const balanceResult = await client.query(`
-      SELECT * FROM inventory_balances 
-      WHERE item_id = $1 AND warehouse_id = $2
-    `, [purchase.item_id, purchase.warehouse_id]);
-
-    if (balanceResult.rows.length > 0) {
-      const currentQty = parseFloat(balanceResult.rows[0].quantity);
-      const currentAvgCost = parseFloat(balanceResult.rows[0].average_cost || 0);
-      const newTotalQty = currentQty + qty;
-      const newAvgCost = newTotalQty > 0 
-        ? ((currentQty * currentAvgCost) + (qty * price)) / newTotalQty 
-        : price;
-
-      await client.query(`
-        UPDATE inventory_balances 
-        SET quantity = $1,
-            average_cost = $2,
-            last_movement_date = CURRENT_DATE,
-            updated_at = NOW()
-        WHERE item_id = $3 AND warehouse_id = $4
-      `, [newTotalQty, newAvgCost, purchase.item_id, purchase.warehouse_id]);
-    } else {
-      await client.query(`
-        INSERT INTO inventory_balances (
-          item_id, warehouse_id, quantity, average_cost, last_movement_date
-        ) VALUES ($1, $2, $3, $4, CURRENT_DATE)
-      `, [purchase.item_id, purchase.warehouse_id, qty, price]);
+    // ═══ نسبة التكلفة الفعلية (شامل مصاريف الشحن + الإفراج الجمركي) لو الفاتورة مرتبطة بشحنة ═══
+    let costRatio = 1;
+    if (purchase.shipment_id) {
+      const shipmentResult = await client.query(
+        `SELECT total_cost_egp FROM shipments WHERE id = $1`,
+        [purchase.shipment_id]
+      );
+      const totalCostEgp = parseFloat(shipmentResult.rows[0]?.total_cost_egp) || 0;
+      const purchaseTotalEgp = parseFloat(purchase.total_amount) || 0;
+      if (purchaseTotalEgp > 0 && totalCostEgp > 0) {
+        costRatio = totalCostEgp / purchaseTotalEgp;
+      }
     }
+    console.log(`[post] purchase=${purchase.id}, shipment_id=${purchase.shipment_id}, cost_ratio=${costRatio}`);
 
-    // 3. Serial numbers
-    const itemResult = await client.query(
-      `SELECT has_serial FROM items WHERE id = $1`,
-      [purchase.item_id]
+    // ═══ جيب كل أصناف الفاتورة (فاتورة قد تحتوي أكثر من صنف) ═══
+    const purchaseItemsResult = await client.query(
+      `SELECT * FROM purchase_items WHERE purchase_id = $1`,
+      [purchase.id]
     );
+    // توافقًا مع فواتير قديمة قد لا يكون لها صفوف في purchase_items
+    const itemsList = purchaseItemsResult.rows.length > 0
+      ? purchaseItemsResult.rows
+      : [{ item_id: purchase.item_id, quantity: purchase.quantity, unit_price: purchase.unit_price }];
 
-    if (itemResult.rows.length > 0 && itemResult.rows[0].has_serial) {
+    // فاتورة الصنف الواحد فقط ممكن يكون لها كمية مستلمة فعليًا مختلفة عن المطلوبة
+    const receivedQtyOverride = (itemsList.length === 1 && receipt.received_quantity)
+      ? parseFloat(receipt.received_quantity)
+      : null;
+
+    let totalAddedQty = 0;
+    const postedItems = [];
+
+    for (const item of itemsList) {
+      const qty = receivedQtyOverride !== null ? receivedQtyOverride : (parseFloat(item.quantity) || 0);
+      if (qty <= 0) continue;
+
+      const rawUnitPrice = parseFloat(item.unit_price) || 0;
+      const landedUnitPrice = rawUnitPrice * costRatio; // شامل الشحن والجمارك وضريبة الوارد
+
+      // 1. حركة مخزن
       await client.query(`
-        UPDATE serial_numbers 
-        SET status = 'in_stock',
-            warehouse_id = $1
-        WHERE receipt_voucher_id = $2 AND status = 'pending'
-      `, [purchase.warehouse_id, receipt.id]);
+        INSERT INTO inventory_movements (
+          movement_type, item_id, warehouse_id, quantity, unit_price, 
+          total_amount, reference_type, reference_id, notes, created_by
+        ) VALUES ('in', $1, $2, $3, $4, $5, 'purchase', $6, 'إضافة مخزن من فاتورة مشتريات', $7)
+      `, [
+        item.item_id,
+        purchase.warehouse_id,
+        qty,
+        landedUnitPrice,
+        qty * landedUnitPrice,
+        purchase.id,
+        req.user.id
+      ]);
+
+      // 2. تحديث رصيد المخزن
+      const balanceResult = await client.query(`
+        SELECT * FROM inventory_balances 
+        WHERE item_id = $1 AND warehouse_id = $2
+      `, [item.item_id, purchase.warehouse_id]);
+
+      if (balanceResult.rows.length > 0) {
+        const currentQty = parseFloat(balanceResult.rows[0].quantity);
+        const currentAvgCost = parseFloat(balanceResult.rows[0].average_cost || 0);
+        const newTotalQty = currentQty + qty;
+        const newAvgCost = newTotalQty > 0 
+          ? ((currentQty * currentAvgCost) + (qty * landedUnitPrice)) / newTotalQty 
+          : landedUnitPrice;
+
+        await client.query(`
+          UPDATE inventory_balances 
+          SET quantity = $1,
+              average_cost = $2,
+              last_movement_date = CURRENT_DATE,
+              updated_at = NOW()
+          WHERE item_id = $3 AND warehouse_id = $4
+        `, [newTotalQty, newAvgCost, item.item_id, purchase.warehouse_id]);
+      } else {
+        await client.query(`
+          INSERT INTO inventory_balances (
+            item_id, warehouse_id, quantity, average_cost, last_movement_date
+          ) VALUES ($1, $2, $3, $4, CURRENT_DATE)
+        `, [item.item_id, purchase.warehouse_id, qty, landedUnitPrice]);
+      }
+
+      // 3. Serial numbers (لكل صنف على حدة)
+      const itemInfoResult = await client.query(
+        `SELECT has_serial FROM items WHERE id = $1`,
+        [item.item_id]
+      );
+
+      if (itemInfoResult.rows.length > 0 && itemInfoResult.rows[0].has_serial) {
+        await client.query(`
+          UPDATE serial_numbers 
+          SET status = 'in_stock',
+              warehouse_id = $1
+          WHERE receipt_voucher_id = $2 AND item_id = $3 AND status = 'pending'
+        `, [purchase.warehouse_id, receipt.id, item.item_id]);
+      }
+
+      totalAddedQty += qty;
+      postedItems.push({ item_id: item.item_id, quantity: qty, unit_cost_egp: landedUnitPrice.toFixed(2) });
     }
 
     // ═══ تسجيل في supplier_ledger (لو مش مسجل قبل كده في approve) ═══
@@ -960,7 +1001,9 @@ router.put('/:id/post', verifyToken, requireRole('finance', 'admin'), async (req
     res.json({
       message: 'تم ترحيل الفاتورة وإضافة الكمية للمخزن بنجاح',
       purchase: purchase,
-      added_quantity: qty,
+      cost_ratio: costRatio.toFixed(6),
+      added_quantity: totalAddedQty,
+      items_posted: postedItems,
       warehouse_id: purchase.warehouse_id
     });
 
