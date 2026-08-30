@@ -788,7 +788,7 @@ function Purchases() {
                 <tr><td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد فواتير</td></tr>
               ) : (
                 purchases.map(p => (
-                  <tr key={p.id} style={{ backgroundColor: p.id % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                  <tr key={p.id} style={{ backgroundColor: p.id % 2 === 0 ? '#f8f9fa' : 'white', color: '#1e293b' }}>
                     <td style={tdStyle}><strong>{p.purchase_number}</strong></td>
                     <td style={tdStyle}>{p.supplier}</td>
                     <td style={tdStyle}>{p.warehouse_name}</td>
