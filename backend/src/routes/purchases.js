@@ -155,10 +155,12 @@ router.post('/', verifyToken, requireRole('purchasing', 'admin'), async (req, re
       const price = parseFloat(item.unit_price) || 0;
       const itemTotal = qty * price;
       await client.query(`
-        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes, customs_duty_rate, customs_duty_amount, is_vat_exempt, is_profit_tax_exempt)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `, [
-        purchase.id, item.item_id, qty, item.unit || 'عدد', price, itemTotal, item.notes || ''
+        purchase.id, item.item_id, qty, item.unit || 'عدد', price, itemTotal, item.notes || '',
+        parseFloat(item.customs_duty_rate) || 0, parseFloat(item.customs_duty_amount) || 0,
+        item.is_vat_exempt || false, item.is_profit_tax_exempt || false
       ]);
     }
 
@@ -287,10 +289,12 @@ router.put('/:id', verifyToken, requireRole('purchasing', 'admin'), async (req, 
       const price = parseFloat(item.unit_price) || 0;
       const itemTotal = qty * price;
       await client.query(`
-        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes, customs_duty_rate, customs_duty_amount, is_vat_exempt, is_profit_tax_exempt)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `, [
-        id, item.item_id, qty, item.unit || 'عدد', price, itemTotal, item.notes || ''
+        id, item.item_id, qty, item.unit || 'عدد', price, itemTotal, item.notes || '',
+        parseFloat(item.customs_duty_rate) || 0, parseFloat(item.customs_duty_amount) || 0,
+        item.is_vat_exempt || false, item.is_profit_tax_exempt || false
       ]);
     }
 
@@ -367,9 +371,13 @@ router.post('/:id/duplicate', verifyToken, requireRole('purchasing', 'admin'), a
     const itemsResult = await client.query('SELECT * FROM purchase_items WHERE purchase_id = $1', [id]);
     for (const item of itemsResult.rows) {
       await client.query(`
-        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `, [newId, item.item_id, item.quantity, item.unit, item.unit_price, item.total_amount, item.notes]);
+        INSERT INTO purchase_items (purchase_id, item_id, quantity, unit, unit_price, total_amount, notes, customs_duty_rate, customs_duty_amount, is_vat_exempt, is_profit_tax_exempt)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `, [
+        newId, item.item_id, item.quantity, item.unit, item.unit_price, item.total_amount, item.notes,
+        item.customs_duty_rate || 0, item.customs_duty_amount || 0,
+        item.is_vat_exempt || false, item.is_profit_tax_exempt || false
+      ]);
     }
 
     await client.query('COMMIT');
@@ -1107,8 +1115,8 @@ router.post('/from-po', verifyToken, requireRole('purchasing', 'admin'), async (
     for (const item of items) {
       await client.query(`
         INSERT INTO purchase_items (
-          purchase_id, item_id, quantity, unit, unit_price, total_amount, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          purchase_id, item_id, quantity, unit, unit_price, total_amount, notes, customs_duty_rate, customs_duty_amount, is_vat_exempt, is_profit_tax_exempt
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `, [
         purchaseId,
         item.item_id,
@@ -1116,7 +1124,8 @@ router.post('/from-po', verifyToken, requireRole('purchasing', 'admin'), async (
         item.unit || 'عدد',
         item.unit_price_egp || 0,
         item.total_egp || 0,
-        `مستورد من ${po.order_number}`
+        `مستورد من ${po.order_number}`,
+        0, 0, false, false
       ]);
     }
 

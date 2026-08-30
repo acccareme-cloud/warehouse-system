@@ -34,7 +34,7 @@ function Purchases() {
 
   // Multi-item form items
   const [formItems, setFormItems] = useState([
-    { item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '' }
+    { item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '', customs_duty_rate: 0, customs_duty_amount: 0, is_vat_exempt: false, is_profit_tax_exempt: false }
   ]);
 
   const [calculations, setCalculations] = useState({
@@ -182,7 +182,7 @@ function Purchases() {
 
   // Multi-item handlers
   const addItem = () => {
-    setFormItems([...formItems, { item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '' }]);
+    setFormItems([...formItems, { item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '', customs_duty_rate: 0, customs_duty_amount: 0, is_vat_exempt: false, is_profit_tax_exempt: false }]);
   };
 
   const removeItem = (index) => {
@@ -264,7 +264,11 @@ function Purchases() {
           quantity: parseFloat(item.quantity),
           unit_price: parseFloat(item.unit_price) || 0,
           unit: item.unit,
-          notes: item.notes || ''
+          notes: item.notes || '',
+          customs_duty_rate: parseFloat(item.customs_duty_rate) || 0,
+          customs_duty_amount: parseFloat(item.customs_duty_amount) || 0,
+          is_vat_exempt: item.is_vat_exempt || false,
+          is_profit_tax_exempt: item.is_profit_tax_exempt || false
         }))
       };
 
@@ -368,10 +372,14 @@ function Purchases() {
           quantity: item.quantity,
           unit: item.unit || 'عدد',
           unit_price: item.unit_price || 0,
-          notes: item.notes || ''
+          notes: item.notes || '',
+          customs_duty_rate: item.customs_duty_rate || 0,
+          customs_duty_amount: item.customs_duty_amount || 0,
+          is_vat_exempt: item.is_vat_exempt || false,
+          is_profit_tax_exempt: item.is_profit_tax_exempt || false
         })));
       } else {
-        setFormItems([{ item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '' }]);
+        setFormItems([{ item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '', customs_duty_rate: 0, customs_duty_amount: 0, is_vat_exempt: false, is_profit_tax_exempt: false }]);
       }
     } catch (err) {
       // Fallback: if API doesn't support /items, use single item from purchase
@@ -381,10 +389,11 @@ function Purchases() {
           quantity: purchase.quantity || 1,
           unit: purchase.unit || purchase.item_unit || 'عدد',
           unit_price: purchase.unit_price || 0,
-          notes: ''
+          notes: '',
+          customs_duty_rate: 0, customs_duty_amount: 0, is_vat_exempt: false, is_profit_tax_exempt: false
         }]);
       } else {
-        setFormItems([{ item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '' }]);
+        setFormItems([{ item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '', customs_duty_rate: 0, customs_duty_amount: 0, is_vat_exempt: false, is_profit_tax_exempt: false }]);
       }
     }
 
@@ -405,7 +414,7 @@ function Purchases() {
       shipment_id: '',
       notes: ''
     });
-    setFormItems([{ item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '' }]);
+    setFormItems([{ item_id: '', quantity: 1, unit: 'عدد', unit_price: 0, notes: '', customs_duty_rate: 0, customs_duty_amount: 0, is_vat_exempt: false, is_profit_tax_exempt: false }]);
     setTaxControls({ has_vat: true, has_discount_tax: true });
   };
 
@@ -612,21 +621,35 @@ function Purchases() {
             <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
               <thead>
                 <tr style={{ backgroundColor: '#343a40', color: 'white' }}>
-                  <th style={{...thStyle, width: '30%'}}>الصنف</th>
-                  <th style={{...thStyle, width: '10%'}}>الكمية</th>
-                  <th style={{...thStyle, width: '10%'}}>الوحدة</th>
-                  <th style={{...thStyle, width: '12%'}}>سعر الوحدة</th>
-                  <th style={{...thStyle, width: '12%'}}>الإجمالي</th>
-                  <th style={{...thStyle, width: '15%'}}>ملاحظات</th>
+                  <th style={{...thStyle, width: '20%'}}>الصنف</th>
+                  <th style={{...thStyle, width: '8%'}}>الكمية</th>
+                  <th style={{...thStyle, width: '8%'}}>الوحدة</th>
+                  <th style={{...thStyle, width: '10%'}}>سعر الوحدة</th>
+                  <th style={{...thStyle, width: '10%'}}>الإجمالي</th>
+                  {activeTab === 'import' && (
+                    <>
+                      <th style={{...thStyle, width: '10%'}}>ضريبة الوارد (نسبة % أو مبلغ)</th>
+                      <th style={{...thStyle, width: '7%'}}>معفى VAT</th>
+                      <th style={{...thStyle, width: '7%'}}>معفى ربحية</th>
+                      <th style={{...thStyle, width: '10%'}}>ض. الوارد المقترحة</th>
+                    </>
+                  )}
+                  <th style={{...thStyle, width: '10%'}}>ملاحظات</th>
                   <th style={{...thStyle, width: '5%'}}></th>
                 </tr>
               </thead>
               <tbody>
-                {formItems.map((item, index) => (
+                {formItems.map((item, index) => {
+                  const qty = parseFloat(item.quantity) || 0;
+                  const price = parseFloat(item.unit_price) || 0;
+                  const dutyAmount = parseFloat(item.customs_duty_amount) || 0;
+                  const dutyRate = parseFloat(item.customs_duty_rate) || 0;
+                  const suggestedDuty = dutyAmount > 0 ? dutyAmount : (qty * price * dutyRate / 100);
+                  return (
                   <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8f9fa' : 'white' }}>
                     <td style={tdStyle}>
                       <select value={item.item_id} onChange={(e) => updateItem(index, 'item_id', e.target.value)} required
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}>
                         <option value="">-- اختر الصنف --</option>
                         {items.map(it => (
                           <option key={it.id} value={it.id}>{it.code} - {it.name}</option>
@@ -635,7 +658,7 @@ function Purchases() {
                     </td>
                     <td style={tdStyle}>
                       <input type="number" step="0.001" min="0.001" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} required
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} />
                     </td>
                     <td style={tdStyle}>
                       <input type="text" value={item.unit} readOnly
@@ -643,14 +666,38 @@ function Purchases() {
                     </td>
                     <td style={tdStyle}>
                       <input type="number" step="0.01" min="0" value={item.unit_price} onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} />
                     </td>
                     <td style={tdStyle}>
-                      <strong>{(parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0)).toFixed(2)}</strong>
+                      <strong>{(price * qty).toFixed(2)}</strong>
                     </td>
+                    {activeTab === 'import' && (
+                      <>
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <input type="number" step="0.001" min="0" value={item.customs_duty_rate} onChange={(e) => updateItem(index, 'customs_duty_rate', e.target.value)}
+                              placeholder="نسبة %"
+                              style={{ width: '50%', padding: '6px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }} />
+                            <input type="number" step="0.01" min="0" value={item.customs_duty_amount} onChange={(e) => updateItem(index, 'customs_duty_amount', e.target.value)}
+                              placeholder="مبلغ ج.م"
+                              style={{ width: '50%', padding: '6px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }} />
+                          </div>
+                          <small style={{ color: '#888', fontSize: '10px' }}>لو دخلت مبلغ، بيتجاهل النسبة</small>
+                        </td>
+                        <td style={{...tdStyle, textAlign: 'center'}}>
+                          <input type="checkbox" checked={item.is_vat_exempt} onChange={(e) => updateItem(index, 'is_vat_exempt', e.target.checked)} />
+                        </td>
+                        <td style={{...tdStyle, textAlign: 'center'}}>
+                          <input type="checkbox" checked={item.is_profit_tax_exempt} onChange={(e) => updateItem(index, 'is_profit_tax_exempt', e.target.checked)} />
+                        </td>
+                        <td style={tdStyle}>
+                          <strong style={{ color: '#92400e' }}>{suggestedDuty.toFixed(2)} ج.م</strong>
+                        </td>
+                      </>
+                    )}
                     <td style={tdStyle}>
                       <input type="text" value={item.notes} onChange={(e) => updateItem(index, 'notes', e.target.value)} placeholder="ملاحظات..."
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                        style={{ width: '100%', padding: '8px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }} />
                     </td>
                     <td style={tdStyle}>
                       <button type="button" onClick={() => removeItem(index)}
@@ -659,7 +706,8 @@ function Purchases() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ color: '#1e293b', backgroundColor: '#e3f2fd', fontWeight: 'bold' }}>
