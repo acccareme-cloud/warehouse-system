@@ -331,4 +331,63 @@ router.get('/supplier-items', verifyToken, async (req, res) => {
   }
 });
 
+// 📊 تقرير أعمار ديون الموردين (Aging)
+router.get('/aging', verifyToken, async (req, res) => {
+  try {
+    // لكل مورد رصيده موجب، نحسب تاريخ أقدم فاتورة لسه "مفتوحة" (بعد آخر سداد مسجل)
+    const result = await pool.query(`
+      SELECT
+        s.id as supplier_id,
+        s.name as supplier_name,
+        s.balance,
+        oldest.oldest_open_invoice_date,
+        CASE
+          WHEN oldest.oldest_open_invoice_date IS NULL THEN NULL
+          ELSE (CURRENT_DATE - oldest.oldest_open_invoice_date)
+        END as days_outstanding
+      FROM suppliers s
+      LEFT JOIN LATERAL (
+        SELECT MIN(sl.transaction_date) as oldest_open_invoice_date
+        FROM supplier_ledger sl
+        WHERE sl.supplier_id = s.id
+          AND sl.transaction_type = 'invoice'
+          AND sl.transaction_date > COALESCE(
+            (SELECT MAX(sl2.transaction_date) FROM supplier_ledger sl2
+             WHERE sl2.supplier_id = s.id AND sl2.transaction_type = 'payment'),
+            '1900-01-01'
+          )
+      ) oldest ON true
+      WHERE s.balance > 0.01
+      ORDER BY days_outstanding DESC NULLS LAST
+    `);
+
+    const buckets = { current: [], '31_60': [], '61_90': [], over_90: [], unknown: [] };
+    let totals = { current: 0, '31_60': 0, '61_90': 0, over_90: 0, unknown: 0 };
+
+    for (const row of result.rows) {
+      const days = row.days_outstanding;
+      const balance = parseFloat(row.balance) || 0;
+      let bucket;
+      if (days === null || days === undefined) bucket = 'unknown';
+      else if (days <= 30) bucket = 'current';
+      else if (days <= 60) bucket = '31_60';
+      else if (days <= 90) bucket = '61_90';
+      else bucket = 'over_90';
+      buckets[bucket].push(row);
+      totals[bucket] += balance;
+    }
+
+    res.json({
+      success: true,
+      generated_at: new Date().toISOString(),
+      totals,
+      grand_total: Object.values(totals).reduce((a, b) => a + b, 0),
+      buckets
+    });
+  } catch (err) {
+    console.error('[GET /aging] Error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;

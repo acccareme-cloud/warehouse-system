@@ -83,7 +83,8 @@ router.post('/', verifyToken, requireRole('finance', 'admin'), async (req, res) 
         c.payment_method, 
         c.currency,
         c.exchange_rate,
-        c.employee_id as custody_employee_id
+        c.employee_id as custody_employee_id,
+        c.shipment_id as custody_shipment_id
        FROM custody_submissions cs
        JOIN custodies c ON cs.custody_id = c.id
        WHERE cs.id = $1 AND cs.status = 'approved'`,
@@ -120,6 +121,35 @@ router.post('/', verifyToken, requireRole('finance', 'admin'), async (req, res) 
          detail.cost_center_id || null, detail.amount, detail.description || null, 
          detail.receipt_number || null, submission_id, req.user.id]
       );
+    }
+
+    // 3ب. لو العهدة مرتبطة بشحنة، كل بند تسوية بيتحول تلقائيًا لمصروف شحنة
+    // (بدل ما ندخل نفس البيانات مرتين) — ده اللي بيخلي تسوية عهدة المخلص/الموظف
+    // تنعكس تلقائيًا على تكلفة الشحنة من غير تكرار إدخال
+    if (submission.custody_shipment_id) {
+      for (const detail of detailsResult.rows) {
+        const amt = parseFloat(detail.amount) || 0;
+        await client.query(
+          `INSERT INTO shipment_expenses (
+            shipment_id, expense_date, expense_type, description,
+            amount_egp, amount_usd, amount_eur, amount_other, exchange_rate_usd, exchange_rate_eur, exchange_rate_other,
+            total_egp, custody_id, has_tax_invoice, attachment_url, notes,
+            expense_category_id, supplier_id, payment_method, created_by
+          ) VALUES ($1, CURRENT_DATE, $2, $3, $4, 0, 0, 0, 0, 0, 0, $4, $5, false, $6, $7, $8, $9, 'custody', $10)`,
+          [
+            submission.custody_shipment_id,
+            detail.category_name || 'مصروف عهدة',
+            detail.description || detail.category_name || `تسوية عهدة ${submission.custody_number}`,
+            amt,
+            custody_id,
+            detail.receipt_attachment || null,
+            `تسوية تلقائية من عهدة ${submission.custody_number} — ${settlement_number}`,
+            detail.expense_category_id || null,
+            submission.supplier_id || null,
+            req.user.id
+          ]
+        );
+      }
     }
 
     // 4. نحدث مراكز التكلفة

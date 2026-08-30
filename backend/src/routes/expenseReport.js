@@ -367,4 +367,137 @@ router.get('/detail', verifyToken, async (req, res) => {
   }
 });
 
+// ============================================
+// تقرير ضريبة القيمة المضافة (مدخلات + مخرجات = الصافي المستحق)
+// ============================================
+router.get('/vat-report', verifyToken, async (req, res) => {
+  const { date_from, date_to } = req.query;
+  const from = date_from || '2000-01-01';
+  const to = date_to || '2100-01-01';
+
+  try {
+    // ── مدخلات: مصاريف الشحنات (VAT مدفوعة على الشحن/التخليص/عهدة المخلص) ──
+    const shipmentExpensesVat = await pool.query(`
+      SELECT COALESCE(SUM(vat_amount), 0) as total
+      FROM shipment_expenses
+      WHERE expense_date BETWEEN $1 AND $2 AND vat_amount > 0
+    `, [from, to]);
+
+    // ── مدخلات: الإفراج الجمركي (VAT 14% المحسوبة عند التخليص) ──
+    const clearanceVat = await pool.query(`
+      SELECT COALESCE(SUM(vat_14_amount), 0) as total
+      FROM shipment_clearances
+      WHERE clearance_date BETWEEN $1 AND $2
+    `, [from, to]);
+
+    // ── مدخلات: فواتير المشتريات (tax_14_percent بيخزن قيمة الـ VAT فعليًا مش النسبة) ──
+    const purchasesVat = await pool.query(`
+      SELECT COALESCE(SUM(tax_14_percent), 0) as total
+      FROM purchases
+      WHERE created_at::date BETWEEN $1 AND $2 AND has_vat = true AND status != 'cancelled'
+    `, [from, to]);
+
+    // ── مخرجات: الفواتير الضريبية الصادرة للعملاء ──
+    const outputVat = await pool.query(`
+      SELECT COALESCE(SUM(vat_amount), 0) as total
+      FROM tax_invoices
+      WHERE invoice_date BETWEEN $1 AND $2 AND status != 'cancelled'
+    `, [from, to]);
+
+    const inputTotal =
+      parseFloat(shipmentExpensesVat.rows[0].total) +
+      parseFloat(clearanceVat.rows[0].total) +
+      parseFloat(purchasesVat.rows[0].total);
+    const outputTotal = parseFloat(outputVat.rows[0].total);
+
+    // ── تفصيل شهري (للمقارنة عبر الوقت) ──
+    const monthlyResult = await pool.query(`
+      WITH input_monthly AS (
+        SELECT to_char(expense_date, 'YYYY-MM') as month, SUM(vat_amount) as amount
+        FROM shipment_expenses WHERE expense_date BETWEEN $1 AND $2 AND vat_amount > 0
+        GROUP BY 1
+        UNION ALL
+        SELECT to_char(clearance_date, 'YYYY-MM') as month, SUM(vat_14_amount) as amount
+        FROM shipment_clearances WHERE clearance_date BETWEEN $1 AND $2
+        GROUP BY 1
+        UNION ALL
+        SELECT to_char(created_at::date, 'YYYY-MM') as month, SUM(tax_14_percent) as amount
+        FROM purchases WHERE created_at::date BETWEEN $1 AND $2 AND has_vat = true AND status != 'cancelled'
+        GROUP BY 1
+      ),
+      output_monthly AS (
+        SELECT to_char(invoice_date, 'YYYY-MM') as month, SUM(vat_amount) as amount
+        FROM tax_invoices WHERE invoice_date BETWEEN $1 AND $2 AND status != 'cancelled'
+        GROUP BY 1
+      ),
+      input_agg AS (
+        SELECT month, SUM(amount) as input_vat FROM input_monthly GROUP BY month
+      )
+      SELECT
+        COALESCE(i.month, o.month) as month,
+        COALESCE(i.input_vat, 0) as input_vat,
+        COALESCE(o.amount, 0) as output_vat,
+        COALESCE(o.amount, 0) - COALESCE(i.input_vat, 0) as net_due
+      FROM input_agg i
+      FULL OUTER JOIN output_monthly o ON i.month = o.month
+      ORDER BY 1
+    `, [from, to]);
+
+    res.json({
+      success: true,
+      period: { from, to },
+      summary: {
+        input_vat: {
+          shipment_expenses: parseFloat(shipmentExpensesVat.rows[0].total),
+          shipment_clearances: parseFloat(clearanceVat.rows[0].total),
+          purchases: parseFloat(purchasesVat.rows[0].total),
+          total: inputTotal
+        },
+        output_vat: {
+          tax_invoices: outputTotal,
+          total: outputTotal
+        },
+        net_due: outputTotal - inputTotal // موجب = مستحق للمصلحة | سالب = قابل للاسترداد
+      },
+      monthly: monthlyResult.rows
+    });
+  } catch (err) {
+    console.error('[GET /vat-report] Error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
+// تفصيل بنود VAT المدخلات لفترة معينة (للنزول من الملخص لمستوى المستند)
+router.get('/vat-report/input-detail', verifyToken, async (req, res) => {
+  const { date_from, date_to } = req.query;
+  const from = date_from || '2000-01-01';
+  const to = date_to || '2100-01-01';
+  try {
+    const result = await pool.query(`
+      SELECT 'shipment_expense' as source, se.id, se.expense_date as date, se.expense_type as description,
+        se.vat_amount as vat, s.shipment_number
+      FROM shipment_expenses se
+      LEFT JOIN shipments s ON se.shipment_id = s.id
+      WHERE se.expense_date BETWEEN $1 AND $2 AND se.vat_amount > 0
+      UNION ALL
+      SELECT 'shipment_clearance' as source, sc.id, sc.clearance_date as date, sc.clearance_number as description,
+        sc.vat_14_amount as vat, s.shipment_number
+      FROM shipment_clearances sc
+      LEFT JOIN shipments s ON sc.shipment_id = s.id
+      WHERE sc.clearance_date BETWEEN $1 AND $2 AND sc.vat_14_amount > 0
+      UNION ALL
+      SELECT 'purchase' as source, p.id, p.created_at::date as date, p.purchase_number as description,
+        p.tax_14_percent as vat, s.shipment_number
+      FROM purchases p
+      LEFT JOIN shipments s ON p.shipment_id = s.id
+      WHERE p.created_at::date BETWEEN $1 AND $2 AND p.has_vat = true AND p.status != 'cancelled' AND p.tax_14_percent > 0
+      ORDER BY date DESC
+    `, [from, to]);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('[GET /vat-report/input-detail] Error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;

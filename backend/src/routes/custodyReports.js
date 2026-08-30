@@ -270,4 +270,45 @@ router.get('/settlement-detail/:settlement_number', verifyToken, async (req, res
   }
 });
 
+// 📊 تقرير العهد المفتوحة المتأخرة (لم تُسوَّى بعد)
+router.get('/outstanding', verifyToken, async (req, res) => {
+  const minDays = parseInt(req.query.min_days) || 0;
+  try {
+    const result = await pool.query(`
+      SELECT
+        c.id, c.custody_number, c.custody_date, c.amount, c.remaining_amount,
+        c.settled_amount, c.status, c.party_type,
+        COALESCE(c.employee_name, c.supplier_name, c.party_name) as holder_name,
+        c.shipment_id, s.shipment_number,
+        (CURRENT_DATE - c.custody_date) as days_open
+      FROM custodies c
+      LEFT JOIN shipments s ON c.shipment_id = s.id
+      WHERE c.status IN ('active', 'partially_settled')
+        AND (CURRENT_DATE - c.custody_date) >= $1
+      ORDER BY days_open DESC
+    `, [minDays]);
+
+    const buckets = { '0_15': [], '16_30': [], '31_60': [], over_60: [] };
+    for (const row of result.rows) {
+      const days = row.days_open;
+      if (days <= 15) buckets['0_15'].push(row);
+      else if (days <= 30) buckets['16_30'].push(row);
+      else if (days <= 60) buckets['31_60'].push(row);
+      else buckets.over_60.push(row);
+    }
+
+    res.json({
+      success: true,
+      generated_at: new Date().toISOString(),
+      total_outstanding: result.rows.reduce((sum, r) => sum + (parseFloat(r.remaining_amount) || 0), 0),
+      count: result.rows.length,
+      linked_to_shipment_count: result.rows.filter(r => r.shipment_id).length,
+      buckets
+    });
+  } catch (err) {
+    console.error('[GET /outstanding] Error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;

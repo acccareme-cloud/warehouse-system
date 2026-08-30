@@ -78,6 +78,80 @@ router.get('/next-number', verifyToken, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// استدعاء مصروف موجود (مدفوع من الخزينة/البنك) عشان تربطه بشحنة
+// بيستبعد أي معاملة اتربطت بشحنة قبل كده (shipment_id IS NULL فقط)
+// ═══════════════════════════════════════════════════════════════
+router.get('/available-expenses', verifyToken, async (req, res) => {
+  const { category, supplier, bank, search } = req.query;
+  try {
+    let query = `
+      SELECT t.id as treasury_id, t.transaction_number, t.transaction_type, t.transaction_date,
+        t.amount, t.currency, t.exchange_rate, t.amount_local, t.description,
+        t.bank_name, t.supplier_id, t.supplier_name, t.payment_method,
+        t.expense_category_id, ec.category_name,
+        t.custody_id, c.custody_number
+      FROM treasury t
+      LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
+      LEFT JOIN custodies c ON t.custody_id = c.id
+      WHERE t.shipment_id IS NULL
+        AND t.status NOT IN ('rejected_by_review', 'rejected_by_finance', 'cancelled')
+        AND t.transaction_type IN ('expense', 'other_outcome', 'supplier_payment', 'bank_transfer')
+    `;
+    const params = [];
+    if (category) { params.push(`%${category}%`); query += ` AND ec.category_name ILIKE $${params.length}`; }
+    if (supplier) { params.push(`%${supplier}%`); query += ` AND t.supplier_name ILIKE $${params.length}`; }
+    if (bank) { params.push(`%${bank}%`); query += ` AND t.bank_name ILIKE $${params.length}`; }
+    if (search) { params.push(`%${search}%`); query += ` AND (t.description ILIKE $${params.length} OR t.transaction_number ILIKE $${params.length})`; }
+    query += ` ORDER BY t.transaction_date DESC LIMIT 100`;
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[GET /available-expenses] Error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// 📊 تقرير: مصاريف الخزينة/البنك المنتظرة الربط بشحنة (لمتابعة المالية)
+router.get('/available-expenses/report', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.id as treasury_id, t.transaction_number, t.transaction_type, t.transaction_date,
+        t.amount, t.amount_local, t.description, t.bank_name,
+        t.supplier_name, ec.category_name,
+        (CURRENT_DATE - t.transaction_date) as days_pending
+      FROM treasury t
+      LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
+      WHERE t.shipment_id IS NULL
+        AND t.status NOT IN ('rejected_by_review', 'rejected_by_finance', 'cancelled')
+        AND t.transaction_type IN ('expense', 'other_outcome', 'supplier_payment', 'bank_transfer')
+      ORDER BY t.transaction_date ASC
+    `);
+
+    const total_pending = result.rows.reduce((sum, r) => sum + (parseFloat(r.amount_local || r.amount) || 0), 0);
+    const by_category = {};
+    for (const row of result.rows) {
+      const key = row.category_name || 'غير مصنف';
+      by_category[key] = (by_category[key] || 0) + (parseFloat(row.amount_local || row.amount) || 0);
+    }
+
+    res.json({
+      success: true,
+      generated_at: new Date().toISOString(),
+      count: result.rows.length,
+      total_pending,
+      by_category,
+      oldest_pending: result.rows.slice(0, 20), // أقدم 20 معاملة منتظرة (أولوية المراجعة)
+      items: result.rows
+    });
+  } catch (err) {
+    console.error('[GET /available-expenses/report] Error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // GET /shipments
 router.get('/', verifyToken, async (req, res) => {
   const { year, status, type } = req.query;
