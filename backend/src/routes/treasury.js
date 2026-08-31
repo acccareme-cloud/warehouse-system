@@ -775,7 +775,7 @@ router.post('/', verifyToken, requireRole('entry_accountant','finance','admin'),
     amount, currency, exchange_rate, payment_method, bank_name, check_number, description, purpose,
     expense_category_id, cost_center_id, shipment_id, bank_account_id, account_number,
     transfer_from, transfer_to, transfer_from_currency, transfer_to_currency, party_type, party_name, force,
-    items, custody_id
+    items, custody_id, commission_amount, bank_fees
   } = req.body;
   const client = await pool.connect();
   try {
@@ -864,6 +864,28 @@ router.post('/', verifyToken, requireRole('entry_accountant','finance','admin'),
         numericAmount, amountLocal, curr, rate, payment_method, bank_name, check_number, purpose, description,
         supplier_id, customer_id, shipment_id, transfer_from, transfer_to, party_type, party_name, custody_id: linkedCustodyId
       }, req.user.id);
+    }
+
+    // ═══ عمولة ومصاريف البنك على تحويل مرتبط بشحنة: بتتسجل تلقائيًا كمصروف شحنة ═══
+    // (نفس فكرة "استدعاء مصروف" بس هنا التسجيل بيحصل فورًا لحظة التحويل نفسه بدل ما تستنى تربطها لاحقًا)
+    const commissionTotal = (parseFloat(commission_amount) || 0) + (parseFloat(bank_fees) || 0);
+    if (transaction_type === 'bank_transfer' && shipment_id && commissionTotal > 0) {
+      await client.query(
+        `INSERT INTO shipment_expenses (
+          shipment_id, expense_date, expense_type, description,
+          amount_egp, amount_usd, amount_eur, amount_other, exchange_rate_usd, exchange_rate_eur, exchange_rate_other,
+          total_egp, treasury_id, has_tax_invoice, notes, payment_method, created_by
+        ) VALUES ($1, $2, 'عمولة ومصاريف بنك', $3, $4, 0, 0, 0, 0, 0, 0, $4, $5, false, $6, 'bank', $7)`,
+        [
+          shipment_id,
+          transaction_date || new Date(),
+          `عمولة/مصاريف تحويل بنكي ${finalTransactionNumber}`,
+          commissionTotal,
+          treasuryRecord.id,
+          `عمولة: ${parseFloat(commission_amount) || 0} + مصاريف بنك: ${parseFloat(bank_fees) || 0} — تحويل ${finalTransactionNumber}`,
+          req.user.id
+        ]
+      );
     }
     await client.query('COMMIT');
     res.status(201).json({ message: skip ? 'تم إنشاء السند بنجاح' : 'تم الإنشاء وإرساله للمراجعة', data: treasuryRecord });
