@@ -54,7 +54,7 @@ const CustodyModule = () => {
       title: '⏰ العهد المتأخرة',
       description: 'تقرير العهد المفتوحة اللي فاتت مدتها (موظفين ومخلصين)',
       color: '#dc2626',
-      path: '/custody-reports'
+      path: '/aging-report'
     }
   ];
 
