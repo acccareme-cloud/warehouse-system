@@ -12,6 +12,8 @@ import PurchaseOrders from './pages/PurchaseOrders';
 import Purchases from './pages/Purchases';
 import Suppliers from './pages/Suppliers';
 import SupplierReports from './pages/SupplierReports';
+import VatReport from './pages/VatReport';
+import AgingReport from './pages/AgingReport';
 import PurchaseApprovals from './pages/PurchaseApprovals';
 import Shipments from './pages/Shipments';
 
@@ -89,6 +91,8 @@ function App() {
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/purchase-approvals" element={<PurchaseApprovals />} />
           <Route path="/supplier-reports" element={<SupplierReports />} />
+          <Route path="/vat-report" element={<VatReport />} />
+          <Route path="/aging-report" element={<AgingReport />} />
           <Route path="/shipments" element={<Shipments />} />
 
           {/* Sales Module */}

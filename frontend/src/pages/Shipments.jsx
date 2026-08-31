@@ -37,6 +37,13 @@ const Shipments = () => {
   });
   const [settlementExpenses, setSettlementExpenses] = useState([]);
 
+  // ═══ استدعاء مصروف من الخزينة/البنك (غير مربوط بشحنة) ═══
+  const [showExpensePicker, setShowExpensePicker] = useState(false);
+  const [availableExpenses, setAvailableExpenses] = useState([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerFilters, setPickerFilters] = useState({ category: '', supplier: '', bank: '', search: '' });
+
+
   // Form states
   const [shipmentForm, setShipmentForm] = useState({
     shipment_number: '', supplier_id: '', country_of_origin: '',
@@ -230,6 +237,54 @@ const handleTaxChange = (field, value) => {
       fetchShipmentDetails(selectedShipment.id);
     } catch (err) { setMessage('❌ ' + (err.response?.data?.message || err.message)); }
     finally { setLoading(false); }
+  };
+
+  // ═══ استدعاء مصروف: بحث + ربط ═══
+  const fetchAvailableExpenses = async () => {
+    setPickerLoading(true);
+    try {
+      const params = {};
+      if (pickerFilters.category) params.category = pickerFilters.category;
+      if (pickerFilters.supplier) params.supplier = pickerFilters.supplier;
+      if (pickerFilters.bank) params.bank = pickerFilters.bank;
+      if (pickerFilters.search) params.search = pickerFilters.search;
+      const res = await api.get('/shipments/available-expenses', { params });
+      setAvailableExpenses(res.data || []);
+    } catch (err) {
+      setMessage('❌ ' + (err.response?.data?.message || err.message));
+    } finally { setPickerLoading(false); }
+  };
+
+  const openExpensePicker = () => {
+    setShowExpensePicker(true);
+    setPickerFilters({ category: '', supplier: '', bank: '', search: '' });
+    fetchAvailableExpenses();
+  };
+
+  // ربط مصروف مُستدعى بالشحنة: بيملأ فورم المصروف بالبيانات ويسجله فورًا
+  const linkAvailableExpense = async (exp) => {
+    if (!selectedShipment) return;
+    setLoading(true);
+    try {
+      const amountEgp = exp.currency === 'EGP' ? exp.amount : (exp.amount_local || exp.amount);
+      await api.post(`/shipments/${selectedShipment.id}/expenses`, {
+        expense_date: exp.transaction_date,
+        expense_type: exp.category_name || (exp.transaction_type === 'bank_transfer' ? 'سداد مورد' : 'أخرى'),
+        description: exp.description || exp.transaction_number,
+        amount_egp: amountEgp,
+        supplier_id: exp.supplier_id || null,
+        payment_method: exp.payment_method || 'bank',
+        treasury_id: exp.treasury_id,
+        custody_id: exp.custody_id || null,
+        expense_category_id: exp.expense_category_id || null,
+        notes: `مستدعى من الخزينة — ${exp.transaction_number}`
+      });
+      setMessage(`✅ تم ربط المصروف "${exp.transaction_number}" بالشحنة`);
+      setShowExpensePicker(false);
+      fetchShipmentDetails(selectedShipment.id);
+    } catch (err) {
+      setMessage('❌ ' + (err.response?.data?.message || err.message));
+    } finally { setLoading(false); }
   };
 
   const resetExpenseForm = () => {
@@ -562,6 +617,7 @@ const handleTaxChange = (field, value) => {
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button onClick={() => navigate('/tax-settings')} style={{ padding: '8px 16px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>⚙️ إعدادات الضرائب</button>
+          <button onClick={openExpensePicker} style={{ padding: '8px 16px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>🔄 استدعاء مصروف</button>
           <ThemeToggle />
         </div>
       </div>
@@ -802,7 +858,16 @@ if (e.is_dummy) custodyGroups[cid].dummy += parseFloat(e.total_egp || 0);
                       </div>
                     )}
                     <form onSubmit={handleAddExpense} style={{ background: hoverBg, padding: '16px', borderRadius: '10px', marginBottom: '16px', border: editingExpense ? '2px solid #0d9488' : 'none' }}>
-                      <h4 style={{ margin: '0 0 12px 0' }}>{editingExpense ? '✏️ تعديل مصروف' : '➕ إضافة مصروف'}</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <h4 style={{ margin: 0 }}>{editingExpense ? '✏️ تعديل مصروف' : '➕ إضافة مصروف'}</h4>
+                        <button
+                          type="button"
+                          onClick={openExpensePicker}
+                          style={{ padding: '8px 14px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                        >
+                          🔄 استدعاء مصروف من الخزينة/البنك
+                        </button>
+                      </div>
 
                       {/* نوع المصروف و الوهمي */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
@@ -1369,6 +1434,66 @@ if (e.is_dummy) custodyGroups[cid].dummy += parseFloat(e.total_egp || 0);
           )}
         </div>
       </div>
+
+      {/* ═══ Modal: استدعاء مصروف من الخزينة/البنك ═══ */}
+      {showExpensePicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: cardBg, borderRadius: '12px', padding: '20px', width: '90%', maxWidth: '900px', maxHeight: '85vh', overflowY: 'auto', color: textColor }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: '#8b5cf6' }}>🔄 استدعاء مصروف من الخزينة/البنك</h3>
+              <button onClick={() => setShowExpensePicker(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: textColor }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '14px' }}>
+              <input placeholder="التصنيف (مثال: تخليص)" value={pickerFilters.category} onChange={e => setPickerFilters({ ...pickerFilters, category: e.target.value })} style={inp()} />
+              <input placeholder="اسم المورد" value={pickerFilters.supplier} onChange={e => setPickerFilters({ ...pickerFilters, supplier: e.target.value })} style={inp()} />
+              <input placeholder="اسم البنك" value={pickerFilters.bank} onChange={e => setPickerFilters({ ...pickerFilters, bank: e.target.value })} style={inp()} />
+              <input placeholder="بحث نصي (وصف/رقم)" value={pickerFilters.search} onChange={e => setPickerFilters({ ...pickerFilters, search: e.target.value })} style={inp()} />
+            </div>
+            <button onClick={fetchAvailableExpenses} style={{ marginBottom: '14px', padding: '8px 16px', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+              🔍 بحث
+            </button>
+
+            {pickerLoading ? (
+              <div style={{ textAlign: 'center', padding: '30px', color: subTextColor }}>جاري التحميل...</div>
+            ) : availableExpenses.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px', color: subTextColor }}>مفيش مصاريف منتظرة الربط مطابقة للبحث</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ borderBottom: `2px solid ${borderColor}`, textAlign: 'right' }}>
+                    <th style={{ padding: '8px' }}>التاريخ</th>
+                    <th style={{ padding: '8px' }}>الوصف</th>
+                    <th style={{ padding: '8px' }}>التصنيف</th>
+                    <th style={{ padding: '8px' }}>المورد/البنك</th>
+                    <th style={{ padding: '8px' }}>المبلغ</th>
+                    <th style={{ padding: '8px' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableExpenses.map(exp => (
+                    <tr key={exp.treasury_id} style={{ borderBottom: `1px solid ${borderColor}` }}>
+                      <td style={{ padding: '8px' }}>{exp.transaction_date ? new Date(exp.transaction_date).toLocaleDateString('ar-EG') : '-'}</td>
+                      <td style={{ padding: '8px' }}>{exp.description || exp.transaction_number}</td>
+                      <td style={{ padding: '8px' }}>{exp.category_name || '-'}</td>
+                      <td style={{ padding: '8px' }}>{exp.supplier_name || exp.bank_name || '-'}</td>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: '#0d9488' }}>{parseFloat(exp.amount_local || exp.amount || 0).toLocaleString()} {exp.currency || 'ج.م'}</td>
+                      <td style={{ padding: '8px' }}>
+                        <button
+                          onClick={() => linkAvailableExpense(exp)}
+                          style={{ padding: '6px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                        >
+                          ربط بالشحنة
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

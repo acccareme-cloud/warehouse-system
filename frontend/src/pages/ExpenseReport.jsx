@@ -305,6 +305,12 @@ function ExpenseReport() {
         >
           🖨️ طباعة
         </button>
+        <button 
+          onClick={() => window.location.href = '/vat-report'} 
+          style={{ padding: '10px 20px', backgroundColor: '#1565c0', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          🧾 تقرير VAT الشامل
+        </button>
       </div>
 
       {/* Filters Section */}

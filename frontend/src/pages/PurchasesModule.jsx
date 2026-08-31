@@ -19,6 +19,8 @@ function PurchasesModule() {
     { title: '🚢 الشحنات', desc: 'إدارة شحنات الاستيراد والمصاريف', color: '#0d9488', path: '/shipments' },
     { title: '🏭 الموردين', desc: 'تكويد وإدارة الموردين', color: '#dc2626', path: '/suppliers' },
     { title: '📊 تقارير الموردين', desc: 'كشف حساب وأرصدة الموردين', color: '#2563eb', path: '/supplier-reports' },
+    { title: '🧾 تقرير VAT', desc: 'ضريبة القيمة المضافة: مدخلات ومخرجات والصافي المستحق', color: '#dc2626', path: '/vat-report' },
+    { title: '⏰ أعمار الديون والعهد', desc: 'أعمار ديون الموردين والعهد المفتوحة المتأخرة', color: '#d97706', path: '/aging-report' },
     { title: '💱 العملات', desc: 'إدارة العملات ومعامل التحويل', color: '#0d9488', path: '/currencies' },
   ];
 

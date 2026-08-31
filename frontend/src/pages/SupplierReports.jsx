@@ -26,6 +26,10 @@ function SupplierReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // ⏰ أعمار الديون
+  const [agingData, setAgingData] = useState(null);
+  const [expandedBucket, setExpandedBucket] = useState(null);
+
   // 📊 تقرير الأصناف (مورد و/أو صنف خلال فترة)
   const [itemsReportData, setItemsReportData] = useState(null);
   const [reportSupplier, setReportSupplier] = useState('');
@@ -122,6 +126,20 @@ function SupplierReports() {
     try {
       const response = await api.get(`/supplier-reports/balances?from_date=${balancesFromDate}&to_date=${balancesToDate}`);
       setBalancesData(response.data);
+    } catch (err) {
+      setError('خطأ في تحميل التقرير: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ⏰ جلب تقرير أعمار الديون
+  const fetchAging = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.get('/supplier-reports/aging');
+      setAgingData(response.data);
     } catch (err) {
       setError('خطأ في تحميل التقرير: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -233,6 +251,21 @@ function SupplierReports() {
           }}
         >
           📦 تقرير الأصناف
+        </button>
+        <button 
+          onClick={() => { setActiveTab('aging'); fetchAging(); }}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: activeTab === 'aging' ? '#2563eb' : '#f3f4f6',
+            color: activeTab === 'aging' ? 'white' : '#374151',
+            border: 'none',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontSize: '16px'
+          }}
+        >
+          ⏰ أعمار الديون
         </button>
       </div>
 
@@ -752,6 +785,79 @@ function SupplierReports() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================ */}
+      {/* ⏰ أعمار الديون */}
+      {/* ============================================ */}
+      {activeTab === 'aging' && (
+        <div>
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>جاري التحميل...</div>
+          ) : agingData ? (
+            <div className="print-area">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
+                {[
+                  { key: 'current', label: '0-30 يوم', color: '#16a34a' },
+                  { key: '31_60', label: '31-60 يوم', color: '#eab308' },
+                  { key: '61_90', label: '61-90 يوم', color: '#f97316' },
+                  { key: 'over_90', label: 'أكتر من 90 يوم', color: '#dc2626' }
+                ].map(b => (
+                  <div key={b.key}
+                    onClick={() => setExpandedBucket(expandedBucket === b.key ? null : b.key)}
+                    style={{
+                      padding: '18px', borderRadius: '10px', cursor: 'pointer',
+                      backgroundColor: '#f9fafb', border: `2px solid ${expandedBucket === b.key ? b.color : '#e5e7eb'}`,
+                      color: '#1e293b'
+                    }}>
+                    <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>{b.label}</div>
+                    <div style={{ fontSize: '22px', fontWeight: 'bold', color: b.color }}>
+                      {(agingData.totals[b.key] || 0).toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                      {(agingData.buckets[b.key] || []).length} مورد
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ padding: '15px 18px', backgroundColor: '#eff6ff', borderRadius: '8px', marginBottom: '20px', color: '#1e293b', fontWeight: 'bold', fontSize: '16px' }}>
+                إجمالي المديونية القائمة: {(agingData.grand_total || 0).toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+              </div>
+
+              {expandedBucket && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#1e293b' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f3f4f6' }}>
+                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e5e7eb' }}>المورد</th>
+                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e5e7eb' }}>الرصيد</th>
+                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e5e7eb' }}>عدد الأيام</th>
+                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e5e7eb' }}>أقدم فاتورة مفتوحة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(agingData.buckets[expandedBucket] || []).map(row => (
+                      <tr key={row.supplier_id}>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{row.supplier_name}</td>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', fontWeight: 'bold' }}>{parseFloat(row.balance).toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م</td>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{row.days_outstanding ?? '-'}</td>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{row.oldest_open_invoice_date ? new Date(row.oldest_open_invoice_date).toLocaleDateString('ar-EG') : '-'}</td>
+                      </tr>
+                    ))}
+                    {(agingData.buckets[expandedBucket] || []).length === 0 && (
+                      <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>لا يوجد موردين في هذه الفئة</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+              {!expandedBucket && (
+                <p style={{ textAlign: 'center', color: '#6b7280' }}>اضغط على أي فئة بالأعلى لعرض تفاصيل الموردين فيها</p>
+              )}
+            </div>
+          ) : (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>جاري تحميل التقرير...</div>
           )}
         </div>
       )}

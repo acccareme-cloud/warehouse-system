@@ -49,6 +49,12 @@ const CustodyModule = () => {
       description: 'اختر موظف وتسوية معينة لطباعتها',
       color: '#059669',
       path: '/custody-settlement-voucher'
+    },
+    {
+      title: '⏰ العهد المتأخرة',
+      description: 'تقرير العهد المفتوحة اللي فاتت مدتها (موظفين ومخلصين)',
+      color: '#dc2626',
+      path: '/custody-reports'
     }
   ];
 
