@@ -84,7 +84,7 @@ function BankAccounts() {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', backgroundColor: '#6c757d', color: 'white' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', direction: 'rtl' }}>

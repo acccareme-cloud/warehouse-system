@@ -174,7 +174,7 @@ function CustodySettlements() {
   const isExact = Math.abs(difference) <= 0.01;
 
   const thStyle = { padding: '15px', backgroundColor: '#1e293b', color: 'white', textAlign: 'right', fontWeight: 'bold', fontSize: '14px' };
-  const tdStyle = { padding: '12px 15px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '14px' };
+  const tdStyle = { padding: '12px 15px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '14px', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto', direction: 'rtl', fontFamily: 'Arial, sans-serif' }}>

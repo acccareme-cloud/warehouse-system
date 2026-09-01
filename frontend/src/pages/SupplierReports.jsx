@@ -333,13 +333,13 @@ function SupplierReports() {
                 <tbody>
                   {ledgerData.transactions.map((t, index) => (
                     <tr key={t.id} style={{ backgroundColor: index % 2 === 0 ? '#f8fafc' : 'white' }}>
-                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                         {new Date(t.transaction_date).toLocaleDateString('ar-EG')}
                       </td>
-                      <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', color: '#1e293b'}}>
                         {t.notes || t.transaction_type}
                       </td>
-                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                         {t.reference_number}
                       </td>
                       <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#dc2626' }}>
@@ -460,13 +460,13 @@ function SupplierReports() {
                 <tbody>
                   {balancesData.suppliers.map((s, index) => (
                     <tr key={s.supplier_id} style={{ backgroundColor: index % 2 === 0 ? '#f0fdf4' : 'white' }}>
-                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold' }}>
+                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold', color: '#1e293b'}}>
                         {s.supplier_code}
                       </td>
-                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', fontWeight: 'bold' }}>
+                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', fontWeight: 'bold', color: '#1e293b'}}>
                         {s.supplier_name}
                       </td>
-                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                      <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                         {parseFloat(s.opening_balance).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                       </td>
                       <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#dc2626' }}>
@@ -490,19 +490,19 @@ function SupplierReports() {
                 </tbody>
                 <tfoot>
                   <tr style={{ backgroundColor: '#166534', color: 'white', fontWeight: 'bold' }}>
-                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center' }} colSpan="2">
+                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center', color: '#1e293b'}} colSpan="2">
                       الإجمالي
                     </td>
-                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center' }}>
+                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center', color: '#1e293b'}}>
                       {parseFloat(balancesData.summary.total_opening).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                     </td>
-                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center' }}>
+                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center', color: '#1e293b'}}>
                       {parseFloat(balancesData.summary.total_invoices).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                     </td>
-                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center' }}>
+                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center', color: '#1e293b'}}>
                       {parseFloat(balancesData.summary.total_payments).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                     </td>
-                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center' }}>
+                    <td style={{ padding: '12px', border: '1px solid #166534', textAlign: 'center', color: '#1e293b'}}>
                       {parseFloat(balancesData.summary.total_closing).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -651,13 +651,13 @@ function SupplierReports() {
                     <tbody>
                       {itemsReportData.summary_by_item.map((it, idx) => (
                         <tr key={it.item_id} style={{ backgroundColor: idx % 2 === 0 ? '#f8fafc' : 'white' }}>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold' }}>{it.item_code}</td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{it.item_name}</td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{it.transactions_count}</td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold', color: '#1e293b'}}>{it.item_code}</td>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', color: '#1e293b'}}>{it.item_name}</td>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>{it.transactions_count}</td>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                             {it.total_quantity.toLocaleString('ar-EG')} {it.unit || ''}
                           </td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold' }}>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold', color: '#1e293b'}}>
                             {it.total_amount.toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -684,13 +684,13 @@ function SupplierReports() {
                     <tbody>
                       {itemsReportData.summary_by_supplier.map((sp, idx) => (
                         <tr key={sp.supplier_id || sp.supplier_name} style={{ backgroundColor: idx % 2 === 0 ? '#f8fafc' : 'white' }}>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold' }}>{sp.supplier_code || '-'}</td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{sp.supplier_name}</td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{sp.transactions_count}</td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold', color: '#1e293b'}}>{sp.supplier_code || '-'}</td>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', color: '#1e293b'}}>{sp.supplier_name}</td>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>{sp.transactions_count}</td>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                             {sp.total_quantity.toLocaleString('ar-EG')}
                           </td>
-                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold' }}>
+                          <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold', color: '#1e293b'}}>
                             {sp.total_amount.toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -724,19 +724,19 @@ function SupplierReports() {
                   ) : (
                     itemsReportData.transactions.map((t, idx) => (
                       <tr key={t.transaction_id} style={{ backgroundColor: idx % 2 === 0 ? '#f8fafc' : 'white' }}>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                           {new Date(t.purchase_date).toLocaleDateString('ar-EG')}
                         </td>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{t.purchase_number}</td>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{t.supplier_name || '-'}</td>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb' }}>{t.item_code} - {t.item_name}</td>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>{t.purchase_number}</td>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', color: '#1e293b'}}>{t.supplier_name || '-'}</td>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', color: '#1e293b'}}>{t.item_code} - {t.item_name}</td>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                           {parseFloat(t.quantity).toLocaleString('ar-EG')} {t.unit || ''}
                         </td>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#1e293b'}}>
                           {parseFloat(t.unit_price).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                         </td>
-                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold' }}>
+                        <td style={{ padding: '10px', border: '1px solid #e5e7eb', textAlign: 'center', fontWeight: 'bold', color: '#1e293b'}}>
                           {parseFloat(t.total_amount).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
                         </td>
                       </tr>

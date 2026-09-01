@@ -321,7 +321,7 @@ function SalesInvoices() {
     : (printData?.invoice ? [{ item_name: printData.invoice.item_name, quantity: printData.invoice.quantity, unit_price: printData.invoice.unit_price, subtotal: printData.invoice.subtotal, serial_numbers: printData.invoice.serial_numbers }] : []);
 
   const thStyle = { padding: '12px', border: '1px solid #ddd' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto', direction: 'rtl', background: '#ffffff', color: '#1f2937', minHeight: '100vh' }}>

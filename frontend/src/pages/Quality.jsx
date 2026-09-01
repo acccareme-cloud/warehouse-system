@@ -192,7 +192,8 @@ const Quality = () => {
   const tdStyle = {
     padding: '12px',
     borderBottom: '1px solid #e5e7eb',
-    textAlign: 'right'
+    textAlign: 'right',
+    color: '#1e293b'
   };
 
   if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>جاري التحميل...</div>;

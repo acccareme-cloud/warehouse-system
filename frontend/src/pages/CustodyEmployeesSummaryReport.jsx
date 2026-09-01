@@ -77,7 +77,7 @@ function CustodyEmployeesSummaryReport() {
   };
 
   const thStyle = { padding: '12px', backgroundColor: '#1e293b', color: 'white', textAlign: 'right', fontSize: '13px' };
-  const tdStyle = { padding: '10px 12px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px' };
+  const tdStyle = { padding: '10px 12px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1300px', margin: '0 auto', direction: 'rtl', fontFamily: 'Arial, sans-serif' }}>

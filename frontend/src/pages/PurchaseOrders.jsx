@@ -358,7 +358,7 @@ const handleDelete = async (id) => {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', textAlign: 'right' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd', textAlign: 'right' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', textAlign: 'right', color: '#1e293b' };
   const totals = calculateTotals();
 
   // Modal styles

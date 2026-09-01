@@ -254,7 +254,7 @@ const CustodyApprovals = () => {
     tab: (active) => ({ padding: '10px 25px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: 'none', backgroundColor: active ? '#1e293b' : '#e5e7eb', color: active ? 'white' : '#374151' }),
     table: { width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
     th: { backgroundColor: '#1e293b', color: 'white', padding: '15px', textAlign: 'right', fontWeight: 'bold', fontSize: '14px' },
-    td: { padding: '12px 15px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '14px' },
+    td: { padding: '12px 15px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '14px', color: '#1e293b' },
     btnView: { backgroundColor: '#3b82f6', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', marginLeft: '5px' },
     btnApprove: { backgroundColor: '#16a34a', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', marginLeft: '5px' },
     btnReject: { backgroundColor: '#dc2626', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', marginLeft: '5px' },

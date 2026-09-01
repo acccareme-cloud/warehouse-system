@@ -83,7 +83,7 @@ function RefundableDeposits() {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', textAlign: 'right' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto', direction: 'rtl' }}>

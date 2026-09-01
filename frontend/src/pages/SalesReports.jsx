@@ -63,7 +63,7 @@ function SalesReports() {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', backgroundColor: '#2563eb', color: 'white' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   const getStatusText = (status) => {
     const statuses = {

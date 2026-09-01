@@ -205,7 +205,7 @@ const ExpenseCategories = () => {
   const labelStyle = { fontWeight: 'bold', marginBottom: '5px', display: 'block', color: '#374151' };
   const tableStyle = { width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' };
   const thStyle = { backgroundColor: '#1e3a5f', color: 'white', padding: '12px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px' };
-  const tdStyle = { padding: '10px 12px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px' };
+  const tdStyle = { padding: '10px 12px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px', color: '#1e293b' };
   const actionBtnStyle = { padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', marginLeft: '5px' };
   const alertStyle = (type) => ({ padding: '12px', borderRadius: '8px', marginBottom: '15px', backgroundColor: type === 'success' ? '#dcfce7' : '#fee2e2', color: type === 'success' ? '#166534' : '#991b1b', border: `1px solid ${type === 'success' ? '#86efac' : '#fecaca'}` });
   const searchStyle = { padding: '10px', border: '1px solid #d1d5db', borderRadius: '8px', width: '300px', fontSize: '14px' };

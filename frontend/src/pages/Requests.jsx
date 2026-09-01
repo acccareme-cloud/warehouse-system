@@ -137,7 +137,7 @@ function Requests() {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   // نجيب معلومات الصنف المختار
   const selectedItem = items.find(i => i.id == formData.item_id);

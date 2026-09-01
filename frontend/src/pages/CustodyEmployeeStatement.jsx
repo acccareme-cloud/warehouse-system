@@ -48,7 +48,7 @@ function CustodyEmployeeStatement() {
   };
 
   const thStyle = { padding: '10px', backgroundColor: '#1e293b', color: 'white', textAlign: 'right', fontSize: '12px' };
-  const tdStyle = { padding: '9px 10px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '12px' };
+  const tdStyle = { padding: '9px 10px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '12px', color: '#1e293b' };
 
   // بيان مختصر لكل تسوية (عدد البنود بدل تفصيلها بالكامل)
   const getSettlementSummaryText = (m) => {

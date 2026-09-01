@@ -437,7 +437,7 @@ const handleWarehouseChange = (warehouseId) => {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', textAlign: 'center' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd', textAlign: 'center' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', textAlign: 'center', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>

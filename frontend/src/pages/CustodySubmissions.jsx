@@ -287,7 +287,7 @@ const CustodySubmissions = () => {
     detailRow: { display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 2fr 1fr 1fr auto', gap: '10px', marginBottom: '10px', padding: '10px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', alignItems: 'center' },
     table: { width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' },
     th: { backgroundColor: '#1e293b', color: 'white', padding: '15px', textAlign: 'right', fontWeight: 'bold', fontSize: '14px' },
-    td: { padding: '12px 15px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '14px' },
+    td: { padding: '12px 15px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontSize: '14px', color: '#1e293b' },
     totalBox: { backgroundColor: '#dbeafe', padding: '15px', borderRadius: '8px', marginTop: '15px', fontWeight: 'bold', fontSize: '16px', color: '#1e40af' },
     diffBoxOver: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginTop: '15px', color: '#991b1b' },
     diffBoxUnder: { backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px', borderRadius: '8px', marginTop: '15px', color: '#1e40af' },

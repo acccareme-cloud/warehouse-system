@@ -696,7 +696,7 @@ function Treasury() {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd', textAlign: 'center' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', textAlign: 'center', color: '#1e293b' };
 
   if (loading) {
     return (

@@ -233,7 +233,7 @@ function DeliveryNotes() {
   };
 
   const thStyle = { padding: '12px', border: '1px solid #ddd', backgroundColor: '#22c55e', color: 'white' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto', direction: 'rtl', background: '#ffffff', color: '#1f2937', minHeight: '100vh' }}>
