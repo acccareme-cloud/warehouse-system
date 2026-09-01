@@ -21,6 +21,40 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
+// Get soft-deleted (inactive) items
+router.get('/deleted', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT i.*, w.name as warehouse_name, c.name as category_name, COALESCE(s.quantity, 0) as quantity
+      FROM items i 
+      LEFT JOIN warehouses w ON i.warehouse_id = w.id 
+      LEFT JOIN categories c ON i.category_id = c.id
+      LEFT JOIN stock s ON i.id = s.item_id 
+      WHERE i.is_active = false
+      ORDER BY i.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Restore a soft-deleted item
+router.put('/:id/restore', verifyToken, requireRole('admin', 'storekeeper'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'UPDATE items SET is_active = true WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'الصنف غير موجود' });
+    }
+    res.json({ message: 'تم استرجاع الصنف', item: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // Create item
 router.post('/', verifyToken, requireRole('admin', 'storekeeper'), async (req, res) => {
   const { code, name, category_id, unit, warehouse_id, reorder_level, unit_cost, has_serial } = req.body;

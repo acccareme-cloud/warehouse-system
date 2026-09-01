@@ -11,6 +11,7 @@ function Items() {
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [deletedItems, setDeletedItems] = useState([]);
   const [message, setMessage] = useState('');
 
   // ========== Item Form ==========
@@ -138,6 +139,28 @@ function Items() {
       fetchItems();
     } catch (err) {
       setMessage('خطأ في الحذف');
+    }
+  };
+
+  // ========== DELETED ITEMS ==========
+  const fetchDeletedItems = async () => {
+    try {
+      const res = await api.get('/items/deleted');
+      setDeletedItems(res.data);
+    } catch (err) {
+      console.error('Error fetching deleted items:', err);
+    }
+  };
+
+  const handleRestore = async (id) => {
+    if (!window.confirm('استرجاع الصنف ده لقائمة الأصناف النشطة؟')) return;
+    try {
+      await api.put(`/items/${id}/restore`);
+      setMessage('تم استرجاع الصنف');
+      fetchDeletedItems();
+      fetchItems();
+    } catch (err) {
+      setMessage('خطأ: ' + (err.response?.data?.message || 'حدث خطأ في الاسترجاع'));
     }
   };
 
@@ -331,6 +354,7 @@ function Items() {
         <button onClick={() => setActiveTab('categories')} style={{ padding: '12px 25px', backgroundColor: activeTab === 'categories' ? '#28a745' : '#e2e8f0', color: activeTab === 'categories' ? 'white' : '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📁 التصنيفات</button>
         <button onClick={() => setActiveTab('warehouses')} style={{ padding: '12px 25px', backgroundColor: activeTab === 'warehouses' ? '#6f42c1' : '#e2e8f0', color: activeTab === 'warehouses' ? 'white' : '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🏭 المخازن</button>
         <button onClick={() => setActiveTab('units')} style={{ padding: '12px 25px', backgroundColor: activeTab === 'units' ? '#fd7e14' : '#e2e8f0', color: activeTab === 'units' ? 'white' : '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>⚖️ الوحدات</button>
+        <button onClick={() => { setActiveTab('deleted'); fetchDeletedItems(); }} style={{ padding: '12px 25px', backgroundColor: activeTab === 'deleted' ? '#dc3545' : '#e2e8f0', color: activeTab === 'deleted' ? 'white' : '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🗑️ الأصناف المحذوفة</button>
       </div>
 
       {/* ========== ITEMS TAB ========== */}
@@ -672,6 +696,43 @@ function Items() {
                       <button onClick={() => handleEditUnit(u)} style={{ padding: '5px 10px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
                       <button onClick={() => handleDeleteUnit(u.id)} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>حذف</button>
                     </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {activeTab === 'deleted' && (
+        <>
+          <h3>🗑️ الأصناف المحذوفة</h3>
+          <p style={{ color: '#64748b', fontSize: '13px' }}>
+            الأصناف دي متعمّلها حذف من شاشة الأصناف العادية، لسه موجودة في قاعدة البيانات، وتقدر تسترجعها في أي وقت.
+          </p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, backgroundColor: '#dc3545' }}>كود</th>
+                <th style={{ ...thStyle, backgroundColor: '#dc3545' }}>اسم الصنف</th>
+                <th style={{ ...thStyle, backgroundColor: '#dc3545' }}>التصنيف</th>
+                <th style={{ ...thStyle, backgroundColor: '#dc3545' }}>المخزن</th>
+                <th style={{ ...thStyle, backgroundColor: '#dc3545' }}>الكمية وقت الحذف</th>
+                <th style={{ ...thStyle, backgroundColor: '#dc3545' }}>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deletedItems.length === 0 ? (
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '20px', ...tdStyle }}>مفيش أصناف محذوفة 🎉</td></tr>
+              ) : deletedItems.map(item => (
+                <tr key={item.id} style={{ backgroundColor: item.id % 2 === 0 ? '#f8f9fa' : 'white' }}>
+                  <td style={tdStyle}><strong>{item.code}</strong></td>
+                  <td style={tdStyle}>{item.name}</td>
+                  <td style={tdStyle}>{item.category_name || '-'}</td>
+                  <td style={tdStyle}>{item.warehouse_name || '-'}</td>
+                  <td style={tdStyle}>{item.quantity || 0}</td>
+                  <td style={tdStyle}>
+                    <button onClick={() => handleRestore(item.id)} style={{ padding: '5px 10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>↩️ استرجاع</button>
                   </td>
                 </tr>
               ))}

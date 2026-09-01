@@ -17,6 +17,7 @@ function Settings() {
   const [keepCustomers, setKeepCustomers] = useState({});
   const [keepCurrencies, setKeepCurrencies] = useState({});
   const [resetSection, setResetSection] = useState(null); // 'items' | 'suppliers' | 'customers' | 'currencies' | null
+  const [resetResult, setResetResult] = useState(null);
 
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'purchasing', full_name: '' });
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
@@ -158,8 +159,8 @@ function Settings() {
         keep_customer_ids: Object.entries(keepCustomers).filter(([, v]) => v).map(([id]) => parseInt(id)),
         keep_currency_ids: Object.entries(keepCurrencies).filter(([, v]) => v).map(([id]) => parseInt(id)),
       });
-      showMessage('✅ ' + res.data.message);
-      setTimeout(() => window.location.reload(), 2000);
+      setResetResult(res.data.summary);
+      showMessage('✅ ' + res.data.message + ' — شوف التفاصيل تحت');
     } catch (err) {
       showMessage('❌ خطأ: ' + (err.response?.data?.message || 'حدث خطأ'));
     } finally {
@@ -512,6 +513,37 @@ function Settings() {
               >
                 {loading ? 'جاري التصفير...' : '⚠️ نفّذ التصفير'}
               </button>
+
+              {resetResult && (
+                <div style={{ background: '#111827', border: '2px solid #0d9488', borderRadius: '8px', padding: '14px', color: '#f3f4f6' }}>
+                  <strong style={{ color: '#5eead4' }}>📋 نتيجة التصفير بالتفصيل (تحقق منها قبل ما تعمل أي حاجة تانية):</strong>
+                  {['items', 'suppliers', 'customers', 'currencies'].map(key => {
+                    const r = resetResult[key];
+                    if (!r) return null;
+                    return (
+                      <div key={key} style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #374151' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                          {key === 'items' ? '📦 الأصناف' : key === 'suppliers' ? '🏭 الموردين' : key === 'customers' ? '👥 العملاء' : '💱 العملات'}:
+                          {' '}{r.status || `اتمسح ${r.deleted_count}${r.kept_count !== undefined ? ` — فضل ${r.kept_count}` : ''}`}
+                        </div>
+                        {r.deleted_rows && r.deleted_rows.length > 0 && (
+                          <div style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>
+                            المحذوف فعليًا: {r.deleted_rows.map(x => `${x.code || ''} ${x.name || ''}`).join('، ')}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div style={{ marginTop: '12px' }}>
+                    <button
+                      onClick={() => window.location.reload()}
+                      style={{ padding: '8px 16px', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      تمام، أعد تحميل الصفحة
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

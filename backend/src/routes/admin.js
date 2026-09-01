@@ -348,18 +348,18 @@ router.post('/reset-database', verifyToken, requireRole('admin'), async (req, re
     // (التنفيذ بعد تصفير جداول الحركة، عشان مفيش صف بيشاور عليها تاني ويعمل تعارض)
     async function deleteUnselected(table, keepIds, label) {
       if (!Array.isArray(keepIds)) {
-        resetSummary[label] = 'skipped (no selection sent — kept all)';
+        resetSummary[label] = { status: 'skipped (no selection sent — kept all)' };
         return;
       }
       if (keepIds.length === 0) {
-        const r = await client.query(`DELETE FROM "${table}"`);
-        resetSummary[label] = `deleted all (${r.rowCount})`;
+        const r = await client.query(`DELETE FROM "${table}" RETURNING id, code, name`);
+        resetSummary[label] = { deleted_count: r.rowCount, deleted_rows: r.rows };
       } else {
         const r = await client.query(
-          `DELETE FROM "${table}" WHERE id NOT IN (${keepIds.map((_, i) => `$${i + 1}`).join(',')})`,
+          `DELETE FROM "${table}" WHERE id NOT IN (${keepIds.map((_, i) => `$${i + 1}`).join(',')}) RETURNING id, code, name`,
           keepIds
         );
-        resetSummary[label] = `deleted ${r.rowCount}, kept ${keepIds.length}`;
+        resetSummary[label] = { deleted_count: r.rowCount, kept_count: keepIds.length, deleted_rows: r.rows, kept_ids_sent: keepIds };
       }
     }
 
@@ -370,6 +370,8 @@ router.post('/reset-database', verifyToken, requireRole('admin'), async (req, re
 
     await client.query('SET session_replication_role = origin');
     await client.query('COMMIT');
+
+    console.log('[RESET] Full summary:', JSON.stringify(resetSummary, null, 2));
 
     res.json({
       message: 'تم التصفير بنجاح حسب الإعدادات المحددة',
