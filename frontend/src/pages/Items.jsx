@@ -314,7 +314,7 @@ function Items() {
 
   const safeValue = (val) => val === undefined || val === null ? '' : val;
   const thStyle = { padding: '12px', border: '1px solid #ddd', backgroundColor: '#007bff', color: 'white' };
-  const tdStyle = { padding: '10px', border: '1px solid #ddd' };
+  const tdStyle = { padding: '10px', border: '1px solid #ddd', color: '#1e293b' };
 
   // ========== JSX ==========
   return (
