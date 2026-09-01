@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useBranding } from '../context/BrandingContext';
 import { theme } from '../theme';
 
 const COLORS = theme.dark;
@@ -28,6 +30,8 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t, lang, toggleLang, isRtl } = useLanguage();
+  const { programName, companyName } = useBranding();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,14 +43,13 @@ function Login() {
       window.location.href = '/dashboard';
     } catch (err) {
       if (!err.response) {
-        // مفيش رد خالص من السيرفر (السيرفر واقع / مشكلة شبكة / 502 من الـ proxy)
-        setError('تعذر الاتصال بالسيرفر. تأكد إن الباك إند شغال وحاول تاني.');
+        setError(t('login.errNoServer'));
       } else if (err.response.status === 401 || err.response.status === 400) {
-        setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+        setError(t('login.errBadCreds'));
       } else if (err.response.status >= 500) {
-        setError('في مشكلة في السيرفر حاليًا (خطأ ' + err.response.status + '). حاول تاني بعد شوية.');
+        setError(t('login.errServer', { code: err.response.status }));
       } else {
-        setError('حصل خطأ غير متوقع. حاول تاني.');
+        setError(t('login.errUnknown'));
       }
     } finally {
       setLoading(false);
@@ -73,13 +76,16 @@ function Login() {
         display: 'flex',
         flexWrap: 'wrap',
         background: COLORS.bg,
-        fontFamily: "'IBM Plex Sans Arabic', system-ui, sans-serif",
-        direction: 'rtl',
+        fontFamily: isRtl
+          ? "'IBM Plex Sans Arabic', system-ui, sans-serif"
+          : "'Inter', system-ui, sans-serif",
+        direction: isRtl ? 'rtl' : 'ltr',
+        position: 'relative',
       }}
     >
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
       />
 
       {/* تعطيل تلوين المتصفح التلقائي (Autofill) عشان مايكسرش الدارك مود */}
@@ -93,6 +99,28 @@ function Login() {
           transition: background-color 9999s ease-in-out 0s;
         }
       `}</style>
+
+      {/* مبدّل اللغة */}
+      <button
+        onClick={toggleLang}
+        type="button"
+        style={{
+          position: 'absolute',
+          top: '20px',
+          [isRtl ? 'left' : 'right']: '20px',
+          zIndex: 2,
+          background: COLORS.surface,
+          border: `1px solid ${COLORS.border}`,
+          color: COLORS.text,
+          borderRadius: '8px',
+          padding: '8px 14px',
+          fontSize: '13px',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        {lang === 'ar' ? 'English' : 'العربية'}
+      </button>
 
       {/* لوحة الهوية */}
       <div
@@ -108,9 +136,8 @@ function Login() {
           overflow: 'hidden',
         }}
       >
-        {/* توهج خفيف خلف الأيقونة يديلوحة عمق */}
         <div style={{
-          position: 'absolute', top: '-80px', right: '-80px', width: '280px', height: '280px',
+          position: 'absolute', top: '-80px', [isRtl ? 'right' : 'left']: '-80px', width: '280px', height: '280px',
           borderRadius: '50%', background: COLORS.primary, opacity: 0.08, filter: 'blur(40px)'
         }} />
 
@@ -136,17 +163,17 @@ function Login() {
               color: COLORS.text,
               fontSize: '30px',
               fontWeight: 700,
-              margin: '0 0 12px 0',
+              margin: '0 0 6px 0',
               lineHeight: 1.3,
             }}
           >
-            نظام إدارة المخازن
-            <br />
-            والأجهزة الطبية
+            {programName}
           </h1>
+          <p style={{ color: COLORS.textMuted, fontSize: '14px', margin: '0 0 16px 0' }}>
+            {companyName}
+          </p>
           <p style={{ color: COLORS.textMuted, fontSize: '15px', lineHeight: 1.8, maxWidth: '380px', margin: 0 }}>
-            متابعة أجهزة التنفس الصناعي والحضانات وقطع الغيار — من طلب الشراء
-            وحتى المخزون، في مكان واحد.
+            {t('login.brandDesc')}
           </p>
         </div>
 
@@ -173,10 +200,10 @@ function Login() {
           padding: '36px 32px', borderRadius: '16px', border: `1px solid ${COLORS.border}`,
         }}>
           <h2 style={{ color: COLORS.text, fontSize: '22px', fontWeight: 600, margin: '0 0 6px 0' }}>
-            تسجيل الدخول
+            {t('login.heading')}
           </h2>
           <p style={{ color: COLORS.textMuted, fontSize: '14px', margin: '0 0 32px 0' }}>
-            ادخل ببيانات حسابك للمتابعة
+            {t('login.subheading')}
           </p>
 
           {error && (
@@ -197,7 +224,7 @@ function Login() {
           )}
 
           <label style={{ display: 'block', color: COLORS.textMuted, fontSize: '13px', marginBottom: '6px' }}>
-            اسم المستخدم
+            {t('login.username')}
           </label>
           <input
             type="text"
@@ -211,7 +238,7 @@ function Login() {
           />
 
           <label style={{ display: 'block', color: COLORS.textMuted, fontSize: '13px', marginBottom: '6px' }}>
-            كلمة المرور
+            {t('login.password')}
           </label>
           <input
             type="password"
@@ -240,7 +267,7 @@ function Login() {
               transition: 'background 0.15s ease',
             }}
           >
-            {loading ? 'جاري الدخول...' : 'دخول'}
+            {loading ? t('login.submitting') : t('login.submit')}
           </button>
         </form>
       </div>

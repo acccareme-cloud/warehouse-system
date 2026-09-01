@@ -55,6 +55,7 @@ const salesInvoiceRoutes = require('./routes/salesInvoices');
 const categoriesRouter = require('./routes/categories');
 const unitsRouter = require('./routes/units');
 const shipmentsRoutes = require('./routes/shipments');
+const settingsRoutes = require('./routes/settings');
 
 
 // Routes جديدة للمبيعات
@@ -109,7 +110,7 @@ app.use('/api/sales-invoices', salesInvoiceRoutes);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/units', unitsRouter);
 app.use('/api/shipments', shipmentsRoutes);  // ✅ صح
-
+app.use('/api/settings', settingsRoutes);
 
 // API Routes جديدة للمبيعات
 app.use('/api/tax-settings', taxSettingsRoutes);

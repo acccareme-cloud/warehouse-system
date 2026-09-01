@@ -1,9 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-
+import { LanguageProvider } from './context/LanguageContext';
+import { BrandingProvider } from './context/BrandingContext';
 // Purchases Module
 import PurchasesModule from './pages/PurchasesModule';
 import Currencies from './pages/Currencies';
@@ -74,8 +76,10 @@ import Settings from './pages/Settings';
 
 function App() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
+    <LanguageProvider>
+  <BrandingProvider>
+    <ThemeProvider>
+      <AuthProvider>
        <Router>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -150,8 +154,10 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
          </Routes>
        </Router>
-      </ThemeProvider>
-    </AuthProvider>
+       </AuthProvider>
+    </ThemeProvider>
+  </BrandingProvider>
+</LanguageProvider>
   );
 }
 

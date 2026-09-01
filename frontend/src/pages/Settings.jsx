@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import api from '../services/api';
+import BrandingSettingsTab from '../components/BrandingSettingsTab';
 
 function Settings() {
   const navigate = useNavigate();
