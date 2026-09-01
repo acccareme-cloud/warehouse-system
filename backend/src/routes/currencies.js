@@ -117,24 +117,29 @@ router.put('/:id', authenticateToken, async (req, res) => {
       await client.query('UPDATE currencies SET is_default = false WHERE id != $1', [id]);
     }
 
+    // Convert exchange_rate to number
+        // Convert exchange_rate to number
+    const rateValue = exchange_rate !== undefined && exchange_rate !== '' && exchange_rate !== null 
+      ? parseFloat(exchange_rate) 
+      : null;
+
     const result = await client.query(`
       UPDATE currencies SET
         name = COALESCE($1, name),
         symbol = COALESCE($2, symbol),
-        exchange_rate = COALESCE($3, exchange_rate),
+        exchange_rate = COALESCE($3::numeric, exchange_rate),
         is_default = COALESCE($4, is_default),
         is_active = COALESCE($5, is_active),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $6
       RETURNING *
-    `, [name, symbol, exchange_rate, is_default, is_active, id]);
-
+    `, [name, symbol, rateValue, is_default, is_active, id]);
     // لو تغير معامل التحويل، تسجيل في التاريخ
-    if (exchange_rate && exchange_rate !== oldRate) {
+    if (rateValue && rateValue !== oldRate) {
       await client.query(`
         INSERT INTO exchange_rate_history (currency_id, exchange_rate, effective_date, notes, created_by)
         VALUES ($1, $2, CURRENT_DATE, 'تعديل معامل التحويل من ' || $3 || ' إلى ' || $2, $4)
-      `, [id, exchange_rate, oldRate, req.user.id]);
+      `, [id, rateValue, oldRate, req.user.id]);
     }
 
     await client.query('COMMIT');
@@ -147,7 +152,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
     client.release();
   }
 });
-
 // ============================================================
 // DELETE /api/currencies/:id - حذف عملة (soft delete)
 // ============================================================

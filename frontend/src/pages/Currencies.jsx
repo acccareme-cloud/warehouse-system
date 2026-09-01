@@ -64,14 +64,21 @@ function Currencies() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Convert exchange_rate to number before sending
+    const data = {
+      ...formData,
+      exchange_rate: formData.exchange_rate ? parseFloat(formData.exchange_rate) : null
+    };
+    
     try {
       if (editingId) {
-        await api.put(`/currencies/${editingId}`, formData);
+        await api.put(`/currencies/${editingId}`, data);
         setMessage('✅ تم تعديل العملة بنجاح');
       } else {
-        await api.post('/currencies', formData);
+        await api.post('/currencies', data);
         setMessage('✅ تم إضافة العملة بنجاح');
       }
       setShowModal(false);
