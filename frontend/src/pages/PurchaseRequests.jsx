@@ -4,6 +4,7 @@ import api from '../services/api';
 function PurchaseRequests() {
   const [items, setItems] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [requests, setRequests] = useState([]);
   const [userRole, setUserRole] = useState('');
   const [currencies, setCurrencies] = useState([]);
@@ -44,6 +45,7 @@ function PurchaseRequests() {
     fetchRequests();
     fetchNextNumber();
     fetchCurrencies();
+    fetchDepartments();
   }, []);
 
   const fetchCurrencies = async () => {
@@ -81,6 +83,14 @@ function PurchaseRequests() {
       console.error('خطأ في تحميل المخازن:', err);
     }
   };
+const fetchDepartments = async () => {  // ← أضف دي
+  try {
+    const response = await api.get('/employees/departments');
+    setDepartments(response.data);
+  } catch (err) {
+    console.error('خطأ في تحميل الإدارات:', err);
+  }
+};
 
   const fetchRequests = async () => {
     try {
@@ -352,15 +362,15 @@ function PurchaseRequests() {
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>القسم:</label>
               <select 
-                value={formData.department} 
-                onChange={(e) => setFormData({...formData, department: e.target.value})}
-                style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}
-              >
-                <option value="المشتريات">المشتريات</option>
-                <option value="الصيانة">الصيانة</option>
-                <option value="الإنتاج">الإنتاج</option>
-                <option value="المخازن">المخازن</option>
-              </select>
+  value={formData.department} 
+  onChange={(e) => setFormData({...formData, department: e.target.value})}
+  style={{ width: '100%', padding: '10px', backgroundColor: '#fff', color: '#1e293b', border: '1px solid #ddd', borderRadius: '4px' }}
+>
+  <option value="">-- اختر القسم --</option>
+  {departments.map(d => (
+    <option key={d.id} value={d.name}>{d.name}</option>
+  ))}
+</select>
             </div>
 
             <div>

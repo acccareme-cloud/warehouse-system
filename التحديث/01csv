@@ -1,0 +1,3 @@
+"id","request_number","request_date","department","requested_by","item_id","quantity","notes","status","approved_by","approved_at","created_at","supplier_name","parent_id","unit","warehouse_id","unit_price","total_amount","items","currency","exchange_rate","total_usd","total_egp","currency_id"
+1,"PRQ-0001","2026-09-01","المشتريات",4,NULL,NULL,"","completed",4,"2026-09-01 15:35:26.63743","2026-09-01 15:35:16.486877",NULL,NULL,"عدد",16,0.00,0.00,"[]","EGP",1.000000,0.00,30000.00,NULL
+2,"PRQ-0002","2026-09-01","المشتريات",4,NULL,NULL,"","completed",4,"2026-09-01 16:22:57.449279","2026-09-01 16:22:51.192162",NULL,NULL,"عدد",15,0.00,0.00,"[]","USD",50.000000,39000.00,1950000.00,NULL
