@@ -83,30 +83,7 @@ router.get('/card', verifyToken, async (req, res) => {
     
     const openingBalance = parseFloat(openingResult.rows[0].opening_balance);
 
-    // 2. الحركات من receipt_vouchers (الإضافات المعتمدة) في الفترة
-    const receiptsResult = await pool.query(`
-      SELECT 
-        r.id,
-        r.receipt_date as moved_at,
-        'in' as movement_type,
-        r.quantity,
-        'receipt' as reference_type,
-        r.id as reference_id,
-        r.created_by as done_by,
-        i.name as item_name,
-        w.name as warehouse_name,
-        u.full_name as done_by_name,
-        r.voucher_number,
-        r.supplier
-      FROM receipt_vouchers r
-      JOIN items i ON r.item_id = i.id
-      JOIN warehouses w ON r.warehouse_id = w.id
-      LEFT JOIN users u ON r.created_by = u.id
-      WHERE r.item_id = $1 AND r.warehouse_id = $2 
-      AND r.receipt_date >= $3 AND r.receipt_date <= $4
-      AND r.financial_approval_status = 'approved'
-      ORDER BY r.receipt_date ASC
-    `, [item_id, warehouse_id, from_date, to_date]);
+    
 
     // 3. الحركات من stock_movements في الفترة
     const movementsResult = await pool.query(`
@@ -125,9 +102,7 @@ router.get('/card', verifyToken, async (req, res) => {
     `, [item_id, warehouse_id, from_date, to_date + ' 23:59:59']);
 
     // دمج الحركات وترتيبها
-    const allMovements = [...receiptsResult.rows, ...movementsResult.rows]
-      .sort((a, b) => new Date(a.moved_at) - new Date(b.moved_at));
-
+     const allMovements = movementsResult.rows;
     // 4. حساب الرصيد التراكمي
     let runningBalance = openingBalance;
     const movementsWithBalance = allMovements.map((mov, index) => {

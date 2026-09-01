@@ -10,12 +10,23 @@ function Reports() {
   
   // كارت صنف
   const [cardData, setCardData] = useState(null);
-  const [cardFilter, setCardFilter] = useState({
-    item_id: '',
-    warehouse_id: '',
-    from_date: '',
-    to_date: ''
-  });
+  const getFirstDayOfMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+};
+
+const getLastDayOfMonth = () => {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+};
+
+const [cardFilter, setCardFilter] = useState({
+  item_id: '',
+  warehouse_id: '',
+  from_date: getFirstDayOfMonth(),
+  to_date: getLastDayOfMonth()
+});
 
   const printRef = useRef();
 
