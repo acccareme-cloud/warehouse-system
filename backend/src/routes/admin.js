@@ -293,10 +293,10 @@ const TRANSACTIONAL_TABLES = [
 router.get('/reset-preview', verifyToken, requireRole('admin'), async (req, res) => {
   try {
     const [items, suppliers, customers, currencies] = await Promise.all([
-      pool.query('SELECT id, code, name FROM items ORDER BY name'),
-      pool.query('SELECT id, code, name FROM suppliers ORDER BY name'),
-      pool.query('SELECT id, code, name FROM customers ORDER BY name'),
-      pool.query('SELECT id, code, name FROM currencies ORDER BY name')
+      pool.query('SELECT id, code, name, is_active FROM items ORDER BY name'),
+      pool.query('SELECT id, code, name, is_active FROM suppliers ORDER BY name'),
+      pool.query("SELECT id, code, name, status FROM customers ORDER BY name"),
+      pool.query('SELECT id, code, name, is_active FROM currencies ORDER BY name')
     ]);
 
     // عدد صفوف كل جدول في المستوى التالت (للمعاينة بس)

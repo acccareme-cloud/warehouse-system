@@ -463,6 +463,7 @@ function Settings() {
                 { key: 'currencies', label: '💱 العملات', list: resetPreview.currencies, keep: keepCurrencies, setKeep: setKeepCurrencies },
               ].map(section => {
                 const keptCount = Object.values(section.keep).filter(Boolean).length;
+                const deletedCount = section.list.filter(row => row.is_active === false || (row.status && row.status !== 'active')).length;
                 const isOpen = resetSection === section.key;
                 return (
                   <div key={section.key} style={{ border: '1px solid #374151', borderRadius: '8px', overflow: 'hidden' }}>
@@ -470,7 +471,7 @@ function Settings() {
                       onClick={() => setResetSection(isOpen ? null : section.key)}
                       style={{ padding: '12px 14px', background: '#1f2937', color: '#f3f4f6', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                     >
-                      <span>{section.label} — هيفضل {keptCount} من {section.list.length}</span>
+                      <span>{section.label} — هيفضل {keptCount} من {section.list.length}{deletedCount > 0 ? ` (منهم ${deletedCount} محذوف مسبقًا)` : ''}</span>
                       <span>{isOpen ? '▲' : '▼'}</span>
                     </div>
                     {isOpen && (
@@ -479,16 +480,25 @@ function Settings() {
                           <button type="button" onClick={() => toggleAll(section.setKeep, section.list, true)} style={{ fontSize: '12px', padding: '4px 10px', background: '#065f46', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>احتفظ بالكل</button>
                           <button type="button" onClick={() => toggleAll(section.setKeep, section.list, false)} style={{ fontSize: '12px', padding: '4px 10px', background: '#7f1d1d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>امسح الكل</button>
                         </div>
-                        {section.list.map(row => (
-                          <label key={row.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '13px', cursor: 'pointer', color: textColor }}>
-                            <input
-                              type="checkbox"
-                              checked={!!section.keep[row.id]}
-                              onChange={(e) => section.setKeep({ ...section.keep, [row.id]: e.target.checked })}
-                            />
-                            <span>{row.code ? `${row.code} — ` : ''}{row.name}</span>
-                          </label>
-                        ))}
+                        {section.list.map(row => {
+                          // العملاء عندهم status مش is_active؛ الباقي عندهم is_active
+                          const isAlreadyDeleted = row.is_active === false || (row.status && row.status !== 'active');
+                          return (
+                            <label key={row.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '13px', cursor: 'pointer', color: isAlreadyDeleted ? '#f87171' : textColor }}>
+                              <input
+                                type="checkbox"
+                                checked={!!section.keep[row.id]}
+                                onChange={(e) => section.setKeep({ ...section.keep, [row.id]: e.target.checked })}
+                              />
+                              <span>{row.code ? `${row.code} — ` : ''}{row.name}</span>
+                              {isAlreadyDeleted && (
+                                <span style={{ fontSize: '11px', background: '#7f1d1d', color: '#fecaca', padding: '2px 8px', borderRadius: '999px' }}>
+                                  🗑️ محذوف مسبقًا
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
                         {section.list.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px' }}>مفيش بيانات</div>}
                       </div>
                     )}
