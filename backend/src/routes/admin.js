@@ -240,52 +240,141 @@ function copyFolderSync(src, dest) {
 // ============================================
 // Reset Database - لا يصفر المستخدمين والصلاحيات
 // ============================================
+// ═══════════════════════════════════════════════════════════════
+// تصفير البيانات — نظام منهجي بـ 3 مستويات (بدل التصفير الشامل الخطر)
+// ═══════════════════════════════════════════════════════════════
+
+// المستوى 1: أكواد رئيسية — ما تتصفرش أبدًا مهما حصل
+const NEVER_RESET_TABLES = [
+  'users', 'employees', 'departments', 'sections',        // مستخدمين وهيكل تنظيمي
+  'warehouses', 'bank_accounts',                            // أكواد المخازن والخزائن/البنوك
+  'categories', 'units', 'cost_centers',                    // تصنيفات وهيكلة
+  'expense_categories', 'expense_types',                    // تصنيفات المصاريف
+  'tax_settings', 'invoice_types', 'customer_tax_settings',// إعدادات الضرائب
+  'countries', 'governorates', 'cities',                    // بيانات جغرافية
+  'migrations', 'sequelizemeta'
+];
+
+// المستوى 2: بيانات فعلية — المستخدم يختار مين يفضل عن طريق keep_ids
+const SELECTABLE_TABLES = {
+  items: 'items',
+  suppliers: 'suppliers',
+  customers: 'customers',
+  currencies: 'currencies'
+};
+
+// المستوى 3: حركة/معاملات — تتصفر تلقائيًا بالكامل دايمًا (بدون اختيار)
+const TRANSACTIONAL_TABLES = [
+  'attachments', 'authority_tracking',
+  'custodies', 'custody_settlements', 'custody_submission_details', 'custody_submissions',
+  'customer_invoice_balances', 'customer_ledger', 'customer_transactions',
+  'delivery_note_items', 'delivery_notes', 'delivery_quote_items', 'delivery_quotes',
+  'discounts', 'dq_sequences', 'exchange_rate_history', 'expenses',
+  'external_advances', 'external_borrowers',
+  'inventory_balances', 'inventory_movements', 'invoice_attachments', 'invoice_payments',
+  'item_serials', 'movements', 'payment_allocations',
+  'price_quote_items', 'price_quotes', 'pricing_sheet_items', 'pricing_sheets',
+  'purchase_invoices', 'purchase_items', 'purchase_order_items', 'purchase_orders',
+  'purchase_request_items', 'purchase_requests', 'purchases',
+  'quality_checks', 'receipt_voucher_items', 'receipt_vouchers', 'refundable_deposits',
+  'requests', 'reserved_numbers',
+  'sales_commissions', 'sales_invoice_approvals', 'sales_invoice_dqs', 'sales_invoice_items',
+  'sales_invoices', 'sales_order_attachments', 'sales_order_delivery_tracking',
+  'sales_order_items', 'sales_orders',
+  'serial_numbers', 'shipment_attachments', 'shipment_clearances', 'shipment_expenses',
+  'shipments', 'stock', 'stock_movements', 'supplier_ledger',
+  'tax_inventory_movements', 'tax_invoice_items', 'tax_invoice_pricing_links',
+  'tax_invoice_serials', 'tax_invoices', 'treasury', 'treasury_attachments', 'treasury_items',
+  'warehouse_issue_items', 'warehouse_issue_vouchers', 'work_order_items', 'work_orders',
+  'work_warranties'
+];
+
+// GET: بيانات المستوى الثاني (عشان الشاشة تعرضها للمستخدم يختار مين يفضل)
+router.get('/reset-preview', verifyToken, requireRole('admin'), async (req, res) => {
+  try {
+    const [items, suppliers, customers, currencies] = await Promise.all([
+      pool.query('SELECT id, code, name FROM items ORDER BY name'),
+      pool.query('SELECT id, code, name FROM suppliers ORDER BY name'),
+      pool.query('SELECT id, code, name FROM customers ORDER BY name'),
+      pool.query('SELECT id, code, name FROM currencies ORDER BY name')
+    ]);
+
+    // عدد صفوف كل جدول في المستوى التالت (للمعاينة بس)
+    const transactionalCounts = {};
+    for (const table of TRANSACTIONAL_TABLES) {
+      try {
+        const r = await pool.query(`SELECT COUNT(*) FROM "${table}"`);
+        transactionalCounts[table] = parseInt(r.rows[0].count);
+      } catch (e) { transactionalCounts[table] = null; }
+    }
+
+    res.json({
+      items: items.rows,
+      suppliers: suppliers.rows,
+      customers: customers.rows,
+      currencies: currencies.rows,
+      transactional_tables: TRANSACTIONAL_TABLES,
+      transactional_counts: transactionalCounts,
+      never_reset_tables: NEVER_RESET_TABLES
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST: التنفيذ الفعلي
+// body: { keep_item_ids: [], keep_supplier_ids: [], keep_customer_ids: [], keep_currency_ids: [] }
+// أي مفتاح متبعتش = معناها "احتفظ بالكل" لهذا النوع (أمان افتراضي)
 router.post('/reset-database', verifyToken, requireRole('admin'), async (req, res) => {
+  const { keep_item_ids, keep_supplier_ids, keep_customer_ids, keep_currency_ids } = req.body;
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
+    // نعطل فحص الـ FK مؤقتًا جوه الترانزاكشن بس، عشان ترتيب التصفير بين الجداول
+    // المرتبطة ببعض (زي purchases وshipments) ميعملش أخطاء foreign key في نص العملية
     await client.query('SET session_replication_role = replica');
 
-    const tablesResult = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-      ORDER BY table_name
-    `);
+    // ═══ المستوى 3: تصفير كل جداول الحركة بالكامل + إعادة تصفير العدادات (IDs) ═══
+    // RESTART IDENTITY هي بالظبط الحل لمشكلة "بعد ما احذف وبدخل جديد بيعمل مشاكل" —
+    // من غيرها العداد كان هيكمل من آخر رقم، فالبيانات الجديدة تاخد IDs عشوائية
+    // مبعثرة بدل ما تبدأ من 1 نظيف
+    const tableList = TRANSACTIONAL_TABLES.map(t => `"${t}"`).join(', ');
+    await client.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
 
-    // ✅ استبعد المستخدمين والصلاحيات والموظفين والأقسام
-    const excludeTables = [
-      'users',              // ← لا تمسح المستخدمين
-      'roles',              // ← لا تمسح الصلاحيات
-      'employees',          // ← لا تمسح الموظفين
-      'departments',        // ← لا تمسح الأقسام
-      'sections',           // ← لا تمسح الأقسام الفرعية
-      'migrations',         // ← لا تمسح المigrations
-      'sequelizemeta'       // ← لا تمسح Sequelize meta
-    ];
+    const resetSummary = { transactional_tables_cleared: TRANSACTIONAL_TABLES.length };
 
-    let resetCount = 0;
-
-    for (const table of tablesResult.rows) {
-      const tableName = table.table_name;
-      if (!excludeTables.includes(tableName)) {
-        try {
-          await client.query(`TRUNCATE TABLE "${tableName}" CASCADE`);
-          resetCount++;
-        } catch (e) {
-          console.log(`Could not truncate ${tableName}:`, e.message);
-        }
+    // ═══ المستوى 2: احذف بس الصفوف اللي المستخدم ما حددهاش كـ"احتفظ" ═══
+    // (التنفيذ بعد تصفير جداول الحركة، عشان مفيش صف بيشاور عليها تاني ويعمل تعارض)
+    async function deleteUnselected(table, keepIds, label) {
+      if (!Array.isArray(keepIds)) {
+        resetSummary[label] = 'skipped (no selection sent — kept all)';
+        return;
+      }
+      if (keepIds.length === 0) {
+        const r = await client.query(`DELETE FROM "${table}"`);
+        resetSummary[label] = `deleted all (${r.rowCount})`;
+      } else {
+        const r = await client.query(
+          `DELETE FROM "${table}" WHERE id NOT IN (${keepIds.map((_, i) => `$${i + 1}`).join(',')})`,
+          keepIds
+        );
+        resetSummary[label] = `deleted ${r.rowCount}, kept ${keepIds.length}`;
       }
     }
+
+    await deleteUnselected('items', keep_item_ids, 'items');
+    await deleteUnselected('suppliers', keep_supplier_ids, 'suppliers');
+    await deleteUnselected('customers', keep_customer_ids, 'customers');
+    await deleteUnselected('currencies', keep_currency_ids, 'currencies');
 
     await client.query('SET session_replication_role = origin');
     await client.query('COMMIT');
 
-    res.json({ 
-      message: `تم تصفير ${resetCount} جدول بنجاح. المستخدمين والصلاحيات والموظفين لم يتم تصفيرها.`,
-      resetTables: resetCount,
-      excludedTables: excludeTables
+    res.json({
+      message: 'تم التصفير بنجاح حسب الإعدادات المحددة',
+      never_reset: NEVER_RESET_TABLES,
+      summary: resetSummary
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -294,6 +383,7 @@ router.post('/reset-database', verifyToken, requireRole('admin'), async (req, re
     client.release();
   }
 });
+
 
 // ============================================
 // Create User (FIXED)

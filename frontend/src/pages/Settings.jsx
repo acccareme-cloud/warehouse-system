@@ -10,7 +10,13 @@ function Settings() {
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const [loading, setLoading] = useState(false);
-  const [resetUsers, setResetUsers] = useState(false);
+  const [resetPreview, setResetPreview] = useState(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [keepItems, setKeepItems] = useState({});
+  const [keepSuppliers, setKeepSuppliers] = useState({});
+  const [keepCustomers, setKeepCustomers] = useState({});
+  const [keepCurrencies, setKeepCurrencies] = useState({});
+  const [resetSection, setResetSection] = useState(null); // 'items' | 'suppliers' | 'customers' | 'currencies' | null
 
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'purchasing', full_name: '' });
   const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
@@ -25,6 +31,13 @@ function Settings() {
     setUser(u);
     if (u.role !== 'admin') navigate('/dashboard');
   }, [navigate]);
+
+  useEffect(() => {
+    if (activeTab === 'reset' && !resetPreview) {
+      fetchResetPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // ⬇️ جديد: جلب المستخدمين لما نفتح التاب
   useEffect(() => {
@@ -101,14 +114,51 @@ function Settings() {
     }
   };
 
+  const fetchResetPreview = async () => {
+    setResetLoading(true);
+    try {
+      const res = await api.get('/admin/reset-preview');
+      setResetPreview(res.data);
+      // افتراضيًا: كل الصفوف محددة "احتفظ" (أأمن اختيار افتراضي)
+      const allChecked = (arr) => Object.fromEntries(arr.map(x => [x.id, true]));
+      setKeepItems(allChecked(res.data.items));
+      setKeepSuppliers(allChecked(res.data.suppliers));
+      setKeepCustomers(allChecked(res.data.customers));
+      setKeepCurrencies(allChecked(res.data.currencies));
+    } catch (err) {
+      showMessage('❌ ' + (err.response?.data?.message || err.message));
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const toggleAll = (setter, list, value) => {
+    setter(Object.fromEntries(list.map(x => [x.id, value])));
+  };
+
   const handleResetData = async () => {
-    if (!window.confirm('⚠️ هل أنت متأكد من تصفير كل البيانات؟ لا يمكن التراجع!')) return;
-    if (!window.confirm('⚠️ تأكيد نهائي: سيتم حذف ALL البيانات!')) return;
-    
+    if (!resetPreview) return;
+    const keptItemsCount = Object.values(keepItems).filter(Boolean).length;
+    const keptSuppliersCount = Object.values(keepSuppliers).filter(Boolean).length;
+    const keptCustomersCount = Object.values(keepCustomers).filter(Boolean).length;
+    const keptCurrenciesCount = Object.values(keepCurrencies).filter(Boolean).length;
+
+    const confirmMsg =
+      `⚠️ هيتصفر كل الحركات والمعاملات نهائيًا (فواتير، شحنات، عهد، خزينة، مخزون... إلخ) — ده مش قابل للتراجع.\n\n` +
+      `هيفضل: ${keptItemsCount} صنف، ${keptSuppliersCount} مورد، ${keptCustomersCount} عميل، ${keptCurrenciesCount} عملة.\n` +
+      `المستخدمين والمخازن والحسابات البنكية وإعدادات الضرائب مش هيتأثروا أبدًا.\n\nمتأكد؟`;
+    if (!window.confirm(confirmMsg)) return;
+    if (!window.confirm('⚠️ تأكيد نهائي: هذا الإجراء لا يمكن التراجع عنه. متابعة؟')) return;
+
     setLoading(true);
     try {
-      await api.post('/admin/reset-database', { includeUsers: resetUsers });
-      showMessage('✅ تم تصفير كل البيانات بنجاح');
+      const res = await api.post('/admin/reset-database', {
+        keep_item_ids: Object.entries(keepItems).filter(([, v]) => v).map(([id]) => parseInt(id)),
+        keep_supplier_ids: Object.entries(keepSuppliers).filter(([, v]) => v).map(([id]) => parseInt(id)),
+        keep_customer_ids: Object.entries(keepCustomers).filter(([, v]) => v).map(([id]) => parseInt(id)),
+        keep_currency_ids: Object.entries(keepCurrencies).filter(([, v]) => v).map(([id]) => parseInt(id)),
+      });
+      showMessage('✅ ' + res.data.message);
       setTimeout(() => window.location.reload(), 2000);
     } catch (err) {
       showMessage('❌ خطأ: ' + (err.response?.data?.message || 'حدث خطأ'));
@@ -386,25 +436,84 @@ function Settings() {
       {activeTab === 'reset' && (
         <div style={{ background: cardBg, padding: '25px', borderRadius: '12px' }}>
           <h3>⚠️ تصفير البيانات</h3>
-          <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
-            <div style={{ background: '#7f1d1d', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                <input type="checkbox" checked={resetUsers} onChange={(e) => setResetUsers(e.target.checked)} />
-                <span>تصفير المستخدمين كمان (حذف كل المستخدمين)</span>
-              </label>
+
+          {resetLoading && <div style={{ padding: '20px', textAlign: 'center' }}>جاري تحميل البيانات...</div>}
+
+          {resetPreview && (
+            <div style={{ display: 'grid', gap: '16px', maxWidth: '700px' }}>
+
+              {/* المستوى 1: أكواد رئيسية — ثابتة دايمًا */}
+              <div style={{ background: '#064e3b', padding: '14px', borderRadius: '8px' }}>
+                <strong style={{ color: '#6ee7b7' }}>🔒 مش هتتأثر أبدًا (أكواد رئيسية):</strong>
+                <div style={{ color: '#a7f3d0', fontSize: '13px', marginTop: '6px' }}>
+                  المستخدمين، الموظفين، المخازن، الحسابات البنكية، إعدادات الضرائب، الفئات والوحدات، الدول/المحافظات
+                </div>
+              </div>
+
+              {/* المستوى 2: اختياري - أصناف/موردين/عملاء/عملات */}
+              <div style={{ background: '#78350f', padding: '14px', borderRadius: '8px' }}>
+                <strong style={{ color: '#fcd34d' }}>📋 اختَر مين يفضل (الباقي هيتمسح):</strong>
+              </div>
+
+              {[
+                { key: 'items', label: '📦 الأصناف', list: resetPreview.items, keep: keepItems, setKeep: setKeepItems },
+                { key: 'suppliers', label: '🏭 الموردين', list: resetPreview.suppliers, keep: keepSuppliers, setKeep: setKeepSuppliers },
+                { key: 'customers', label: '👥 العملاء', list: resetPreview.customers, keep: keepCustomers, setKeep: setKeepCustomers },
+                { key: 'currencies', label: '💱 العملات', list: resetPreview.currencies, keep: keepCurrencies, setKeep: setKeepCurrencies },
+              ].map(section => {
+                const keptCount = Object.values(section.keep).filter(Boolean).length;
+                const isOpen = resetSection === section.key;
+                return (
+                  <div key={section.key} style={{ border: '1px solid #374151', borderRadius: '8px', overflow: 'hidden' }}>
+                    <div
+                      onClick={() => setResetSection(isOpen ? null : section.key)}
+                      style={{ padding: '12px 14px', background: '#1f2937', color: '#f3f4f6', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <span>{section.label} — هيفضل {keptCount} من {section.list.length}</span>
+                      <span>{isOpen ? '▲' : '▼'}</span>
+                    </div>
+                    {isOpen && (
+                      <div style={{ padding: '10px 14px', maxHeight: '260px', overflowY: 'auto', color: textColor, background: cardBg }}>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
+                          <button type="button" onClick={() => toggleAll(section.setKeep, section.list, true)} style={{ fontSize: '12px', padding: '4px 10px', background: '#065f46', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>احتفظ بالكل</button>
+                          <button type="button" onClick={() => toggleAll(section.setKeep, section.list, false)} style={{ fontSize: '12px', padding: '4px 10px', background: '#7f1d1d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>امسح الكل</button>
+                        </div>
+                        {section.list.map(row => (
+                          <label key={row.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '13px', cursor: 'pointer', color: textColor }}>
+                            <input
+                              type="checkbox"
+                              checked={!!section.keep[row.id]}
+                              onChange={(e) => section.setKeep({ ...section.keep, [row.id]: e.target.checked })}
+                            />
+                            <span>{row.code ? `${row.code} — ` : ''}{row.name}</span>
+                          </label>
+                        ))}
+                        {section.list.length === 0 && <div style={{ color: '#9ca3af', fontSize: '13px' }}>مفيش بيانات</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* المستوى 3: حركة/معاملات — تتصفر تلقائيًا بالكامل */}
+              <div style={{ background: '#7f1d1d', padding: '14px', borderRadius: '8px' }}>
+                <strong style={{ color: '#fca5a5' }}>🗑️ هتتصفر بالكامل دايمًا (حركة/معاملات):</strong>
+                <div style={{ color: '#fca5a5', fontSize: '13px', marginTop: '6px', lineHeight: '1.8' }}>
+                  الفواتير (مشتريات ومبيعات)، الشحنات ومصاريفها والإفراج الجمركي، العهد وتسوياتها،
+                  حركات الخزينة والبنك، أرصدة وحركات المخزون، كشوف حساب الموردين/العملاء، الفواتير الضريبية،
+                  فحص الجودة، أذون الصرف، عروض الأسعار، أوامر الشغل
+                </div>
+              </div>
+
+              <button
+                onClick={handleResetData}
+                disabled={loading}
+                style={{ padding: '15px', background: loading ? '#6b7280' : '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}
+              >
+                {loading ? 'جاري التصفير...' : '⚠️ نفّذ التصفير'}
+              </button>
             </div>
-            <button onClick={handleResetData} disabled={loading} style={{ padding: '15px', background: loading ? '#6b7280' : '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-              ⚠️ تصفير كل البيانات
-            </button>
-            <ul style={{ color: '#fca5a5', fontSize: '14px', margin: '0', paddingRight: '20px' }}>
-              <li>كل الفواتير (مبيعات + مشتريات)</li>
-              <li>كل العملاء والموردين</li>
-              <li>كل الموظفين والتسويات</li>
-              <li>كل الأصناف والمخازن</li>
-              <li>كل الحركات والمدفوعات</li>
-              <li>{resetUsers ? '✓ المستخدمين كمان' : '✗ المستخدمين مش هيتمسحوا'}</li>
-            </ul>
-          </div>
+          )}
         </div>
       )}
     </div>
