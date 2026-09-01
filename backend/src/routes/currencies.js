@@ -117,13 +117,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
       await client.query('UPDATE currencies SET is_default = false WHERE id != $1', [id]);
     }
 
-    // Convert exchange_rate to number
-        // Convert exchange_rate to number
-    const rateValue = exchange_rate !== undefined && exchange_rate !== '' && exchange_rate !== null 
-      ? parseFloat(exchange_rate) 
-      : null;
-
-        const result = await client.query(`
+    // ✅ الحل: إضافة Type Casting صريح + تحويل undefined إلى null
+    const result = await client.query(`
       UPDATE currencies SET
         name = COALESCE($1::varchar, name),
         symbol = COALESCE($2::varchar, symbol),
@@ -134,19 +129,20 @@ router.put('/:id', authenticateToken, async (req, res) => {
       WHERE id = $6
       RETURNING *
     `, [
-      name !== undefined ? name : null, 
-      symbol !== undefined ? symbol : null, 
-      exchange_rate !== undefined ? parseFloat(exchange_rate) : null, 
-      is_default !== undefined ? is_default : null, 
-      is_active !== undefined ? is_active : null, 
+      name !== undefined ? name : null,
+      symbol !== undefined ? symbol : null,
+      exchange_rate !== undefined ? parseFloat(exchange_rate) : null,
+      is_default !== undefined ? is_default : null,
+      is_active !== undefined ? is_active : null,
       id
     ]);
+
     // لو تغير معامل التحويل، تسجيل في التاريخ
-    if (rateValue && rateValue !== oldRate) {
+    if (exchange_rate !== undefined && exchange_rate !== oldRate) {
       await client.query(`
         INSERT INTO exchange_rate_history (currency_id, exchange_rate, effective_date, notes, created_by)
         VALUES ($1, $2, CURRENT_DATE, 'تعديل معامل التحويل من ' || $3 || ' إلى ' || $2, $4)
-      `, [id, rateValue, oldRate, req.user.id]);
+      `, [id, parseFloat(exchange_rate), oldRate, req.user.id]);
     }
 
     await client.query('COMMIT');
