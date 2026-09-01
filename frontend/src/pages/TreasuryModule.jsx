@@ -6,9 +6,11 @@ function TreasuryModule() {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const accent = isDark ? '#14B8A6' : '#0D9488';
 
   const bgColor = isDark ? '#0f172a' : '#f8fafc';
   const cardBg = isDark ? '#1e293b' : '#ffffff';
+  const textColor = isDark ? '#f1f5f9' : '#1e293b';
   const subTextColor = isDark ? '#94a3b8' : '#64748b';
 
   const subMenus = [
@@ -48,7 +50,7 @@ function TreasuryModule() {
           >
             ← رجوع
           </button>
-          <h1 style={{ color: '#6f42c1', margin: 0 }}>💵 الخزينة والبنك</h1>
+          <h1 style={{ color: accent, margin: 0 }}>💵 الخزينة والبنك</h1>
         </div>
         <ThemeToggle />
       </div>
@@ -64,14 +66,13 @@ function TreasuryModule() {
               padding: '25px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
               cursor: 'pointer',
-              border: `3px solid ${menu.color}`, 
-              borderTop: `6px solid ${menu.color}`,
+              border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`, borderTop: `4px solid ${accent}`,
               transition: 'transform 0.2s'
             }}
             onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            <h3 style={{ margin: '0 0 10px 0', color: menu.color }}>{menu.title}</h3>
+            <h3 style={{ margin: '0 0 10px 0', color: textColor }}>{menu.title}</h3>
             <p style={{ margin: 0, color: subTextColor }}>{menu.desc}</p>
           </div>
         ))}

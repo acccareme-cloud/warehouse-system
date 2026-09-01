@@ -7,6 +7,7 @@ const CustodyModule = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const accent = isDark ? '#14B8A6' : '#0D9488';
 
   const bgColor = isDark ? '#0f172a' : '#f8fafc';
   const cardBg = isDark ? '#1e293b' : '#ffffff';
@@ -97,8 +98,8 @@ const CustodyModule = () => {
       borderRadius: '12px', 
       padding: '30px',
       boxShadow: '0 4px 6px rgba(0,0,0,0.1)', 
-      border: `3px solid ${color}`,
-      borderTop: `6px solid ${color}`, 
+      border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+      borderTop: `4px solid ${color}`, 
       textAlign: 'center', 
       cursor: 'pointer',
       transition: 'transform 0.2s, box-shadow 0.2s'
@@ -148,7 +149,7 @@ const CustodyModule = () => {
         {custodyItems.map((item, index) => (
           <div 
             key={index} 
-            style={styles.card(item.color)}
+            style={styles.card(accent)}
             onClick={() => navigate(item.path)}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-5px)';
@@ -159,13 +160,13 @@ const CustodyModule = () => {
               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
             }}
           >
-            <div style={{...styles.icon, backgroundColor: item.color + '15'}}>
+            <div style={{...styles.icon, backgroundColor: accent + '15'}}>
               {item.title.split(' ')[0]}
             </div>
             <h3 style={styles.cardTitle}>{item.title.split(' ').slice(1).join(' ')}</h3>
             <p style={styles.cardDesc}>{item.description}</p>
             <button 
-              style={styles.btn(item.color)}
+              style={styles.btn(accent)}
               onClick={(e) => { e.stopPropagation(); navigate(item.path); }}
             >
               فتح ←

@@ -1,19 +1,9 @@
 import { useState } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { theme } from '../theme';
 
-const COLORS = {
-  bgDark: '#1E323B',
-  surfaceDark: '#2A4048',
-  primary: '#20B2A6',
-  primaryDark: '#178F86',
-  amber: '#D19A5C',
-  textLight: '#EEF4F3',
-  textDark: '#16262A',
-  muted: '#A9C0C4',
-  danger: '#E37876',
-  border: '#3D5960',
-};
+const COLORS = theme.dark;
 
 // موجة نبض هادئة — نفس شكل مؤشرات أجهزة التنفس والحضانات
 function WaveformSVG() {
@@ -48,10 +38,32 @@ function Login() {
       login(response.data);
       window.location.href = '/dashboard';
     } catch (err) {
-      setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+      if (!err.response) {
+        // مفيش رد خالص من السيرفر (السيرفر واقع / مشكلة شبكة / 502 من الـ proxy)
+        setError('تعذر الاتصال بالسيرفر. تأكد إن الباك إند شغال وحاول تاني.');
+      } else if (err.response.status === 401 || err.response.status === 400) {
+        setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+      } else if (err.response.status >= 500) {
+        setError('في مشكلة في السيرفر حاليًا (خطأ ' + err.response.status + '). حاول تاني بعد شوية.');
+      } else {
+        setError('حصل خطأ غير متوقع. حاول تاني.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '11px 14px',
+    background: COLORS.input,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: '8px',
+    color: COLORS.text,
+    fontSize: '14px',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+    outline: 'none',
   };
 
   return (
@@ -60,7 +72,7 @@ function Login() {
         minHeight: '100vh',
         display: 'flex',
         flexWrap: 'wrap',
-        background: COLORS.bgDark,
+        background: COLORS.bg,
         fontFamily: "'IBM Plex Sans Arabic', system-ui, sans-serif",
         direction: 'rtl',
       }}
@@ -70,12 +82,24 @@ function Login() {
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
       />
 
+      {/* تعطيل تلوين المتصفح التلقائي (Autofill) عشان مايكسرش الدارك مود */}
+      <style>{`
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0px 1000px ${COLORS.input} inset !important;
+          -webkit-text-fill-color: ${COLORS.text} !important;
+          caret-color: ${COLORS.text};
+          transition: background-color 9999s ease-in-out 0s;
+        }
+      `}</style>
+
       {/* لوحة الهوية */}
       <div
         style={{
           flex: '1 1 420px',
           minHeight: '340px',
-          background: `linear-gradient(160deg, ${COLORS.bgDark} 0%, #243B44 60%, ${COLORS.surfaceDark} 100%)`,
+          background: `linear-gradient(160deg, ${COLORS.bg} 0%, ${COLORS.surface} 60%, ${COLORS.surfaceHover} 100%)`,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -84,6 +108,12 @@ function Login() {
           overflow: 'hidden',
         }}
       >
+        {/* توهج خفيف خلف الأيقونة يديلوحة عمق */}
+        <div style={{
+          position: 'absolute', top: '-80px', right: '-80px', width: '280px', height: '280px',
+          borderRadius: '50%', background: COLORS.primary, opacity: 0.08, filter: 'blur(40px)'
+        }} />
+
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div
             style={{
@@ -96,13 +126,14 @@ function Login() {
               justifyContent: 'center',
               fontSize: '22px',
               marginBottom: '28px',
+              boxShadow: `0 0 24px ${COLORS.primary}55`,
             }}
           >
             🫁
           </div>
           <h1
             style={{
-              color: COLORS.textLight,
+              color: COLORS.text,
               fontSize: '30px',
               fontWeight: 700,
               margin: '0 0 12px 0',
@@ -113,7 +144,7 @@ function Login() {
             <br />
             والأجهزة الطبية
           </h1>
-          <p style={{ color: COLORS.muted, fontSize: '15px', lineHeight: 1.8, maxWidth: '380px', margin: 0 }}>
+          <p style={{ color: COLORS.textMuted, fontSize: '15px', lineHeight: 1.8, maxWidth: '380px', margin: 0 }}>
             متابعة أجهزة التنفس الصناعي والحضانات وقطع الغيار — من طلب الشراء
             وحتى المخزون، في مكان واحد.
           </p>
@@ -130,18 +161,21 @@ function Login() {
         style={{
           flex: '1 1 380px',
           minHeight: '340px',
-          background: COLORS.surfaceDark,
+          background: COLORS.bg,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '40px 24px',
         }}
       >
-        <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '360px' }}>
-          <h2 style={{ color: COLORS.textLight, fontSize: '22px', fontWeight: 600, margin: '0 0 6px 0' }}>
+        <form onSubmit={handleSubmit} style={{
+          width: '100%', maxWidth: '360px', background: COLORS.surface,
+          padding: '36px 32px', borderRadius: '16px', border: `1px solid ${COLORS.border}`,
+        }}>
+          <h2 style={{ color: COLORS.text, fontSize: '22px', fontWeight: 600, margin: '0 0 6px 0' }}>
             تسجيل الدخول
           </h2>
-          <p style={{ color: COLORS.muted, fontSize: '14px', margin: '0 0 32px 0' }}>
+          <p style={{ color: COLORS.textMuted, fontSize: '14px', margin: '0 0 32px 0' }}>
             ادخل ببيانات حسابك للمتابعة
           </p>
 
@@ -149,9 +183,9 @@ function Login() {
             <div
               role="alert"
               style={{
-                background: 'rgba(225, 85, 84, 0.12)',
+                background: COLORS.dangerBg,
                 border: `1px solid ${COLORS.danger}`,
-                color: '#F5B5B4',
+                color: COLORS.danger,
                 borderRadius: '8px',
                 padding: '10px 14px',
                 fontSize: '13px',
@@ -162,7 +196,7 @@ function Login() {
             </div>
           )}
 
-          <label style={{ display: 'block', color: COLORS.muted, fontSize: '13px', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: COLORS.textMuted, fontSize: '13px', marginBottom: '6px' }}>
             اسم المستخدم
           </label>
           <input
@@ -171,24 +205,12 @@ function Login() {
             onChange={(e) => setUsername(e.target.value)}
             required
             autoFocus
-            style={{
-              width: '100%',
-              padding: '11px 14px',
-              marginBottom: '18px',
-              background: COLORS.bgDark,
-              border: `1px solid ${COLORS.border}`,
-              borderRadius: '8px',
-              color: COLORS.textLight,
-              fontSize: '14px',
-              boxSizing: 'border-box',
-              fontFamily: 'inherit',
-              outline: 'none',
-            }}
+            style={{ ...inputStyle, marginBottom: '18px' }}
             onFocus={(e) => (e.target.style.borderColor = COLORS.primary)}
             onBlur={(e) => (e.target.style.borderColor = COLORS.border)}
           />
 
-          <label style={{ display: 'block', color: COLORS.muted, fontSize: '13px', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: COLORS.textMuted, fontSize: '13px', marginBottom: '6px' }}>
             كلمة المرور
           </label>
           <input
@@ -196,19 +218,7 @@ function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{
-              width: '100%',
-              padding: '11px 14px',
-              marginBottom: '26px',
-              background: COLORS.bgDark,
-              border: `1px solid ${COLORS.border}`,
-              borderRadius: '8px',
-              color: COLORS.textLight,
-              fontSize: '14px',
-              boxSizing: 'border-box',
-              fontFamily: 'inherit',
-              outline: 'none',
-            }}
+            style={{ ...inputStyle, marginBottom: '26px' }}
             onFocus={(e) => (e.target.style.borderColor = COLORS.primary)}
             onBlur={(e) => (e.target.style.borderColor = COLORS.border)}
           />
@@ -219,7 +229,7 @@ function Login() {
             style={{
               width: '100%',
               padding: '13px',
-              background: loading ? COLORS.primaryDark : COLORS.primary,
+              background: loading ? COLORS.primaryHover : COLORS.primary,
               color: '#04211F',
               border: 'none',
               borderRadius: '8px',
