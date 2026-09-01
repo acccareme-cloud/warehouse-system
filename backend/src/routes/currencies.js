@@ -123,17 +123,24 @@ router.put('/:id', authenticateToken, async (req, res) => {
       ? parseFloat(exchange_rate) 
       : null;
 
-    const result = await client.query(`
+        const result = await client.query(`
       UPDATE currencies SET
-        name = COALESCE($1, name),
-        symbol = COALESCE($2, symbol),
+        name = COALESCE($1::varchar, name),
+        symbol = COALESCE($2::varchar, symbol),
         exchange_rate = COALESCE($3::numeric, exchange_rate),
-        is_default = COALESCE($4, is_default),
-        is_active = COALESCE($5, is_active),
+        is_default = COALESCE($4::boolean, is_default),
+        is_active = COALESCE($5::boolean, is_active),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $6
       RETURNING *
-    `, [name, symbol, rateValue, is_default, is_active, id]);
+    `, [
+      name !== undefined ? name : null, 
+      symbol !== undefined ? symbol : null, 
+      exchange_rate !== undefined ? parseFloat(exchange_rate) : null, 
+      is_default !== undefined ? is_default : null, 
+      is_active !== undefined ? is_active : null, 
+      id
+    ]);
     // لو تغير معامل التحويل، تسجيل في التاريخ
     if (rateValue && rateValue !== oldRate) {
       await client.query(`
