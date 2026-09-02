@@ -1,11 +1,7 @@
 // frontend/src/i18n/translations.js
-//
-// قاموس الترجمة الكامل للنظام
-// أضف مفتاح جديد هنا كل ما تحوّل شاشة، بنفس الاسم في اللغتين.
-// استخدام: const { t } = useLanguage(); ... t('login.title')
 
 // ============================================================
-// 1. قاموس الترجمات (لازم يكون الأول عشان دالة translate تستخدمه)
+// 1. قاموس الترجمات الكامل (لازم يكون الأول)
 // ============================================================
 export const translations = {
   ar: {
@@ -76,6 +72,24 @@ export const translations = {
     'moduleHub.menus.customerReports.desc': 'كشف حساب العملاء',
     'moduleHub.menus.taxSettings.title': 'إعدادات الضرائب',
     'moduleHub.menus.taxSettings.desc': 'إعدادات ضريبة القيمة المضافة',
+
+    // ===== Purchases Module =====
+    'moduleHub.menus.purchaseInvoices.title': 'فواتير المشتريات',
+    'moduleHub.menus.purchaseInvoices.desc': 'إنشاء وإدارة فواتير المشتريات',
+    'moduleHub.menus.purchaseOrders.title': 'أوامر الشراء',
+    'moduleHub.menus.purchaseOrders.desc': 'إدارة أوامر الشراء',
+    'moduleHub.menus.purchaseRequests.title': 'طلبات الشراء',
+    'moduleHub.menus.purchaseRequests.desc': 'إنشاء وإدارة طلبات الشراء',
+    'moduleHub.menus.supplierReports.title': 'تقارير الموردين',
+    'moduleHub.menus.supplierReports.desc': 'تحليل أداء الموردين',
+    'moduleHub.menus.suppliers.title': 'الموردين',
+    'moduleHub.menus.suppliers.desc': 'إدارة بيانات الموردين',
+    'moduleHub.menus.shipments.title': 'الشحنات',
+    'moduleHub.menus.shipments.desc': 'متابعة الشحنات الواردة',
+    'moduleHub.menus.currencies.title': 'العملات',
+    'moduleHub.menus.currencies.desc': 'إدارة العملات وأسعار الصرف',
+    'moduleHub.menus.vatReport.title': 'تقرير ضريبة القيمة المضافة',
+    'moduleHub.menus.vatReport.desc': 'تقرير شامل لضريبة القيمة المضافة',
 
     // ===== Treasury Module =====
     'moduleHub.menus.receiptVouchers.title': 'سندات القبض',
@@ -296,6 +310,24 @@ export const translations = {
     'moduleHub.menus.taxSettings.title': 'Tax Settings',
     'moduleHub.menus.taxSettings.desc': 'VAT configuration',
 
+    // ===== Purchases Module =====
+    'moduleHub.menus.purchaseInvoices.title': 'Purchase Invoices',
+    'moduleHub.menus.purchaseInvoices.desc': 'Create and manage purchase invoices',
+    'moduleHub.menus.purchaseOrders.title': 'Purchase Orders',
+    'moduleHub.menus.purchaseOrders.desc': 'Manage purchase orders',
+    'moduleHub.menus.purchaseRequests.title': 'Purchase Requests',
+    'moduleHub.menus.purchaseRequests.desc': 'Create and manage purchase requests',
+    'moduleHub.menus.supplierReports.title': 'Supplier Reports',
+    'moduleHub.menus.supplierReports.desc': 'Analyze supplier performance',
+    'moduleHub.menus.suppliers.title': 'Suppliers',
+    'moduleHub.menus.suppliers.desc': 'Manage supplier data',
+    'moduleHub.menus.shipments.title': 'Shipments',
+    'moduleHub.menus.shipments.desc': 'Track incoming shipments',
+    'moduleHub.menus.currencies.title': 'Currencies',
+    'moduleHub.menus.currencies.desc': 'Manage currencies and exchange rates',
+    'moduleHub.menus.vatReport.title': 'VAT Report',
+    'moduleHub.menus.vatReport.desc': 'Comprehensive VAT report',
+
     // ===== Treasury Module =====
     'moduleHub.menus.receiptVouchers.title': 'Receipt Vouchers',
     'moduleHub.menus.receiptVouchers.desc': 'Collect payments from customers',
@@ -448,18 +480,15 @@ export const translations = {
 };
 
 // ============================================================
-// 2. دالة الترجمة (تستخدم translations المصدرة أعلاه)
+// 2. دالة الترجمة (تستخدم قاموس translations المصدّر أعلاه)
 // ============================================================
 export const translate = (lang, key, params = {}) => {
-  // لو المفتاح مش موجود في اللغة المطلوبة، جرب الإنجليزي، لو مش موجود ارجع المفتاح نفسه
   const value = translations[lang]?.[key] ?? translations['en']?.[key] ?? key;
 
-  // لو مفيش parameters، ارجع النص مباشرة
   if (!params || Object.keys(params).length === 0) {
     return value;
   }
 
-  // استبدال المتغيرات في النص (مثل {code} → 500)
   return Object.keys(params).reduce((text, paramKey) => {
     return text.replace(new RegExp(`{${paramKey}}`, 'g'), params[paramKey]);
   }, value);

@@ -1,5 +1,4 @@
-// frontend/src/context/LanguageContext.jsx
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { translate } from '../i18n/translations';
 
 const LanguageContext = createContext();
@@ -13,16 +12,16 @@ export function LanguageProvider({ children }) {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
   }, [lang]);
 
-  const setLang = (l) => setLangState(l === 'en' ? 'en' : 'ar');
-  const toggleLang = () => setLangState((prev) => (prev === 'ar' ? 'en' : 'ar'));
+  const setLang = useCallback((l) => setLangState(l === 'en' ? 'en' : 'ar'), []);
+  const toggleLang = useCallback(() => setLangState((prev) => (prev === 'ar' ? 'en' : 'ar')), []);
 
-  // t('login.heading') أو t('login.errServer', { code: 500 })
   const t = useCallback((key, params) => translate(lang, key, params), [lang]);
-
   const isRtl = lang === 'ar';
 
+  const value = useMemo(() => ({ lang, setLang, toggleLang, t, isRtl }), [lang, setLang, toggleLang, t, isRtl]);
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, toggleLang, t, isRtl }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

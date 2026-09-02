@@ -127,29 +127,31 @@ function ModuleHubLayout({ icon, titleKey, menus }) {
         }}>
           {menus.map((menu, i) => (
             <div
-              key={i}
-              onClick={() => navigate(menu.path)}
-              style={{
-                background: colors.surface,
-                borderRadius: '16px',
-                padding: '32px',
-                cursor: 'pointer',
-                border: `1px solid ${colors.border}`,
-                borderTop: `4px solid ${menu.color || colors.primary}`,
-                transition: 'all 0.3s ease',
-                boxShadow: `0 4px 12px ${colors.shadow}`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-8px)';
-                e.currentTarget.style.boxShadow = `0 12px 24px ${colors.shadow}`;
-                e.currentTarget.style.borderColor = menu.color || colors.primary;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = `0 4px 12px ${colors.shadow}`;
-                e.currentTarget.style.borderColor = colors.border;
-              }}
-            >
+  key={i}
+  onClick={() => navigate(menu.path)}
+  style={{
+    background: colors.surface,
+    borderRadius: '16px',
+    padding: '32px',
+    cursor: 'pointer',
+    borderWidth: '1px 1px 1px 4px',
+    borderStyle: 'solid',
+    borderColor: colors.border,
+    borderLeftColor: menu.color || colors.primary,
+    transition: 'all 0.3s ease',
+    boxShadow: `0 4px 12px ${colors.shadow}`,
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = 'translateY(-8px)';
+    e.currentTarget.style.boxShadow = `0 12px 24px ${colors.shadow}`;
+    e.currentTarget.style.borderLeftColor = menu.color || colors.primary;
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = 'translateY(0)';
+    e.currentTarget.style.boxShadow = `0 4px 12px ${colors.shadow}`;
+    e.currentTarget.style.borderLeftColor = colors.border;
+  }}
+>
               <div style={{
                 fontSize: '48px',
                 marginBottom: '16px',
