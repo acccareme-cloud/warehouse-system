@@ -117,25 +117,50 @@ router.put('/:id', authenticateToken, async (req, res) => {
       await client.query('UPDATE currencies SET is_default = false WHERE id != $1', [id]);
     }
 
-    // ✅ الحل: إضافة Type Casting صريح + تحويل undefined إلى null
+       // بناء استعلام ديناميكي للحقول المرسلة فقط
+    const updates = [];
+    const values = [];
+    let idx = 1;
+
+    if (name !== undefined && name !== null) {
+      updates.push(`name = $${idx++}`);
+      values.push(name);
+    }
+    if (symbol !== undefined && symbol !== null) {
+      updates.push(`symbol = $${idx++}`);
+      values.push(symbol);
+    }
+    if (exchange_rate !== undefined && exchange_rate !== null) {
+      updates.push(`exchange_rate = $${idx++}::numeric`);
+      values.push(parseFloat(exchange_rate));
+    }
+    if (is_default !== undefined && is_default !== null) {
+      updates.push(`is_default = $${idx++}`);
+      values.push(is_default);
+    }
+    if (is_active !== undefined && is_active !== null) {
+      updates.push(`is_active = $${idx++}`);
+      values.push(is_active);
+    }
+
+    // دائماً حدث updated_at
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    if (updates.length === 1) { // فقط updated_at
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'لا توجد بيانات للتحديث' });
+    }
+
+    // أضف id في النهاية
+    values.push(id);
+    const idParam = idx;
+
     const result = await client.query(`
-      UPDATE currencies SET
-        name = COALESCE($1::varchar, name),
-        symbol = COALESCE($2::varchar, symbol),
-        exchange_rate = COALESCE($3::numeric, exchange_rate),
-        is_default = COALESCE($4::boolean, is_default),
-        is_active = COALESCE($5::boolean, is_active),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6
+      UPDATE currencies 
+      SET ${updates.join(', ')}
+      WHERE id = $${idParam}
       RETURNING *
-    `, [
-      name !== undefined ? name : null,
-      symbol !== undefined ? symbol : null,
-      exchange_rate !== undefined ? parseFloat(exchange_rate) : null,
-      is_default !== undefined ? is_default : null,
-      is_active !== undefined ? is_active : null,
-      id
-    ]);
+    `, values);
 
     // لو تغير معامل التحويل، تسجيل في التاريخ
     if (exchange_rate !== undefined && exchange_rate !== oldRate) {

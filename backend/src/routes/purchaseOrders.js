@@ -53,15 +53,17 @@ router.post('/', verifyToken, requireRole('admin', 'purchasing'), async (req, re
 
     // نحسب الإجمالي لو مش موجود
     let finalTotalUsd = parseFloat(total_usd) || 0;
-    let finalTotalEgp = parseFloat(total_egp) || 0;
+let finalTotalEgp = parseFloat(total_egp) || 0;
 
-    if ((!finalTotalUsd || !finalTotalEgp) && items && items.length > 0) {
-      items.forEach(item => {
-        const qty = parseFloat(item.quantity) || 0;
-        finalTotalUsd += qty * (parseFloat(item.unit_price_usd) || 0);
-        finalTotalEgp += qty * (parseFloat(item.unit_price_egp) || 0);
-      });
-    }
+// كل عملة نتأكد منها لوحدها - مش شرط واحد يأثر على الاتنين
+if (!finalTotalUsd && items && items.length > 0) {
+  finalTotalUsd = items.reduce((sum, item) =>
+    sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price_usd) || 0), 0);
+}
+if (!finalTotalEgp && items && items.length > 0) {
+  finalTotalEgp = items.reduce((sum, item) =>
+    sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price_egp) || 0), 0);
+}
 
     // 1. نحفظ الطلب الرئيسي (مع total_amount و net_amount)
     const result = await client.query(
