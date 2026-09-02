@@ -76,10 +76,13 @@ router.post('/', authenticateToken, async (req, res) => {
     `, [code, name, symbol, exchange_rate, is_default || false]);
 
     // تسجيل في تاريخ المعاملات
-    await client.query(`
-      INSERT INTO exchange_rate_history (currency_id, exchange_rate, effective_date, notes, created_by)
-      VALUES ($1, $2, CURRENT_DATE, 'إضافة عملة جديدة', $3)
-    `, [result.rows[0].id, exchange_rate, req.user.id]);
+    if (exchange_rate && exchange_rate !== oldRate) {
+  const historyNote = `تعديل معامل التحويل من ${oldRate} إلى ${exchange_rate}`;
+  await client.query(`
+    INSERT INTO exchange_rate_history (currency_id, exchange_rate, effective_date, notes, created_by)
+    VALUES ($1, $2, CURRENT_DATE, $3, $4)
+  `, [id, exchange_rate, historyNote, req.user.id]);
+}
 
     await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
