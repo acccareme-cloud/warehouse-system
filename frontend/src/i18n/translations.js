@@ -239,6 +239,20 @@ export const translations = {
     'currency.usd': 'دولار',
     'currency.eur': 'يورو',
     'currency.sar': 'ريال',
+// ===== Treasury =====
+    'treasury.todayIncome': 'إيرادات اليوم',
+    'treasury.todayExpense': 'مصروفات اليوم',
+    'treasury.recentTransactions': 'آخر الحركات',
+    'treasury.date': 'التاريخ',
+    'treasury.type': 'النوع',
+    'treasury.description': 'البيان',
+    'treasury.amount': 'المبلغ',
+    'treasury.balance': 'الرصيد',
+    'treasury.income': 'إيراد',
+    'treasury.expense': 'مصروف',
+    'treasury.transfer': 'تحويل',
+    'treasury.netBalance': 'صافي الرصيد',
+    'treasury.summary': 'الملخص',
   },
 
   en: {
@@ -476,6 +490,20 @@ export const translations = {
     'currency.usd': 'USD',
     'currency.eur': 'EUR',
     'currency.sar': 'SAR',
+ // ===== Treasury =====
+    'treasury.todayIncome': "Today's Income",
+    'treasury.todayExpense': "Today's Expenses",
+    'treasury.recentTransactions': 'Recent Transactions',
+    'treasury.date': 'Date',
+    'treasury.type': 'Type',
+    'treasury.description': 'Description',
+    'treasury.amount': 'Amount',
+    'treasury.balance': 'Balance',
+    'treasury.income': 'Income',
+    'treasury.expense': 'Expense',
+    'treasury.transfer': 'Transfer',
+    'treasury.netBalance': 'Net Balance',
+    'treasury.summary': 'Summary',
   }
 };
 

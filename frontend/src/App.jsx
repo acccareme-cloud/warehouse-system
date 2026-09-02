@@ -46,6 +46,7 @@ import BankAccounts from './pages/BankAccounts';
 import CostCenters from './pages/CostCenters';
 import ExpenseCategories from './pages/ExpenseCategories';
 import ExpenseReport from './pages/ExpenseReport';
+import PartnerManagement from './pages/PartnerManagement';
 
 // Warehouse Module
 import WarehouseModule from './pages/WarehouseModule';
@@ -126,6 +127,7 @@ function App() {
           <Route path="/expense-categories" element={<ExpenseCategories />} />
           <Route path="/bank-accounts" element={<BankAccounts />} />
           <Route path="/expense-report" element={<ExpenseReport />} />
+          <Route path="/partner-management" element={<PartnerManagement />} />
 
           {/* Warehouse Module */}
           <Route path="/warehouse-module" element={<WarehouseModule />} />

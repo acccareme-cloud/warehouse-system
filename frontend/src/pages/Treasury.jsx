@@ -5,15 +5,13 @@ import { useAuth } from '../context/AuthContext';
 const STATUS_LABELS = {
   pending_review: { label: '⏳ إعداد', color: '#f59e0b', bg: '#fef3c7' },
   rejected_by_review: { label: '❌ مرفوض مراجعة', color: '#dc2626', bg: '#fee2e2' },
-  pending_approval: { label: '👀 انتظار مراجعة', color: '#2563eb', bg: '#dbeafe' },
+  pending_approval: { label: ' انتظار مراجعة', color: '#2563eb', bg: '#dbeafe' },
   rejected_by_finance: { label: '❌ مرفوض مالية', color: '#dc2626', bg: '#fee2e2' },
   approved: { label: '✅ معتمد', color: '#7c3aed', bg: '#ede9fe' },
-  return_requested: { label: '⚠️ مشكلة صرف', color: '#ea580c', bg: '#ffedd5' },
+  return_requested: { label: '️ مشكلة صرف', color: '#ea580c', bg: '#ffedd5' },
   active: { label: '💸 تم الصرف', color: '#059669', bg: '#d1fae5' },
   cancelled: { label: '🚫 ملغي', color: '#6b7280', bg: '#f3f4f6' }
 };
-
-
 
 const WORKFLOW_TABS = [
   { key: 'all', label: '📋 الكل' },
@@ -24,10 +22,11 @@ const WORKFLOW_TABS = [
 ];
 
 const INCOME_TYPES = [
-  { value: 'customer_payment', label: 'سداد من عميل', color: '#059669', icon: '💵' },
+  { value: 'customer_payment', label: 'سداد من عميل', color: '#059669', icon: '' },
   { value: 'advance_return', label: 'رد سلفة', color: '#0891b2', icon: '↩️' },
   { value: 'custody_return', label: 'رد عهدة', color: '#d97706', icon: '📋' },
   { value: 'treasury_funding', label: 'تمويل الخزينة', color: '#7c3aed', icon: '💰' },
+  { value: 'partner_financing', label: 'تمويل من شريك', color: '#06B6D4', icon: '🤝' },
   { value: 'other_income', label: 'إيراد آخر', color: '#10b981', icon: '📈' }
 ];
 
@@ -37,7 +36,8 @@ const OUTCOME_TYPES = [
   { value: 'custody_settlement', label: 'تسوية عهدة (صرف فرق)', color: '#b91c1c', icon: '📤' },
   { value: 'salary_advance', label: 'سلفة موظف', color: '#ea580c', icon: '💳' },
   { value: 'non_employee_advance', label: 'سلف غير عاملين', color: '#db2777', icon: '👥' },
-  { value: 'expense', label: 'مصروف', color: '#be185d', icon: '📊' },
+  { value: 'expense', label: 'مصروف', color: '#be185d', icon: '' },
+  { value: 'partner_payment', label: 'صرف لشريك', color: '#EC4899', icon: '💵' },
   { value: 'other_outcome', label: 'صرف آخر', color: '#4b5563', icon: '📤' },
   { value: 'bank_transfer', label: 'تحويل بنكي', color: '#7c3aed', icon: '🏦' }
 ];
@@ -52,12 +52,13 @@ const PAYMENT_FILTERS = [
 function Treasury() {
   const { user } = useAuth();
   const role = user?.role;
-
-  // ═══ Data ═══
+  
+  // ═══ Data ══
   const [transactions, setTransactions] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [costCenters, setCostCenters] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -104,17 +105,19 @@ function Treasury() {
   const [formData, setFormData] = useState({
     transaction_type: '', transaction_number: '', transaction_date: new Date().toISOString().split('T')[0],
     customer_id: '', supplier_id: '', employee_id: '', employee_name: '', party_type: 'employee', custody_id: '',
+    partner_id: '',
     amount: '', currency: 'EGP', exchange_rate: '1', payment_method: 'cash',
     bank_account_id: '', bank_name: '', account_number: '', check_number: '',
     description: '', purpose: '', expense_category_id: '', cost_center_id: '',
     transfer_from: '', transfer_to: '', transfer_from_currency: '', transfer_to_currency: '',
     party_name: '', attachment_url: ''
   });
+
   const [skipWorkflow, setSkipWorkflow] = useState(false);
-  // ═══ رصيد عهدة الموظف (لما تختاره في وضع عهدة/رد عهدة/تسوية عهدة) ═══
+
+  // ═══ رصيد عهدة الموظف ═══
   const [employeeCustody, setEmployeeCustody] = useState(null);
   const [loadingEmployeeCustody, setLoadingEmployeeCustody] = useState(false);
-
   const custodyLinkedTypes = ['custody_payment', 'custody_return', 'custody_settlement'];
 
   useEffect(() => {
@@ -131,7 +134,7 @@ function Treasury() {
       const match = list.find(c => String(c.employee_id) === String(formData.employee_id));
       setEmployeeCustody(match || null);
     }).catch(() => { if (!cancelled) setEmployeeCustody(null); })
-      .finally(() => { if (!cancelled) setLoadingEmployeeCustody(false); });
+    .finally(() => { if (!cancelled) setLoadingEmployeeCustody(false); });
     return () => { cancelled = true; };
   }, [selectedType, formData.party_type, formData.employee_id]);
 
@@ -141,7 +144,7 @@ function Treasury() {
     }
   }, [employeeCustody, selectedType]);
 
-  const outTypes = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement'];
+  const outTypes = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment'];
 
   // ═══ Auto-set statement dates ═══
   useEffect(() => {
@@ -156,25 +159,26 @@ function Treasury() {
   useEffect(() => { fetchAllData(); }, []);
 
   // ═══ Auto-load transactions when tab changes ═══
-    useEffect(() => {
+  useEffect(() => {
     if (mainTab === 'income' || mainTab === 'outcome') {
-      fetchTransactions({ status: subTab }); // ← شيلنا type عشان نجيب كل الإذون
+      fetchTransactions({ status: subTab });
     } else if (mainTab === 'balance') {
       fetchBalance();
     }
   }, [subTab, mainTab]);
 
   const fetchAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchCustomers(), fetchSuppliers(), fetchEmployees(),
-      fetchExpenseCategories(), fetchCostCenters(), fetchBankAccounts(),
-      fetchCurrencies(), fetchBalance()
-    ]);
-    setLoading(false);
-  };
+  setLoading(true);
+  await Promise.all([
+    fetchCustomers(), fetchSuppliers(), fetchEmployees(), fetchPartners(),
+    fetchExpenseCategories(), fetchCostCenters(), fetchBankAccounts(),
+    fetchCurrencies(), fetchBalance()
+  ]);
+  setLoading(false);
+};
 
-    const fetchTransactions = async (opts = {}) => {
+
+  const fetchTransactions = async (opts = {}) => {
     try {
       let url = '/treasury';
       const params = [];
@@ -199,10 +203,14 @@ function Treasury() {
   };
 
   const fetchEmployees = async () => {
-    // بنستخدم /treasury/for-treasury لأنها بترجع كل الموظفين حتى اللي مش شغالين حاليًا
-    // (مطلوبين مثلاً لتسجيل "سلف غير عاملين" أو تسوية سلف موظفين سابقين)
     try { const r = await api.get('/treasury/for-treasury'); setEmployees(r.data || []); }
     catch (e) { setEmployees([]); }
+  };
+
+
+  const fetchPartners = async () => {
+    try { const r = await api.get('/partners'); setPartners(r.data || []); }
+    catch (e) { setPartners([]); }
   };
 
   const fetchExpenseCategories = async () => {
@@ -264,10 +272,12 @@ function Treasury() {
   const resetForm = () => {
     setFormData({
       transaction_type: '', transaction_number: '', transaction_date: new Date().toISOString().split('T')[0],
-      customer_id: '', supplier_id: '', employee_id: '', employee_name: '', party_type: 'employee', custody_id: '', amount: '', currency: 'EGP',
-      exchange_rate: '1', payment_method: 'cash', bank_account_id: '', bank_name: '', account_number: '', check_number: '',
+      customer_id: '', supplier_id: '', employee_id: '', employee_name: '', party_type: 'employee', custody_id: '',
+      partner_id: '', amount: '', currency: 'EGP', exchange_rate: '1', payment_method: 'cash',
+      bank_account_id: '', bank_name: '', account_number: '', check_number: '',
       description: '', purpose: '', expense_category_id: '', cost_center_id: '',
-      transfer_from: '', transfer_to: '', transfer_from_currency: '', transfer_to_currency: '', party_name: '', attachment_url: ''
+      transfer_from: '', transfer_to: '', transfer_from_currency: '', transfer_to_currency: '',
+      party_name: '', attachment_url: ''
     });
     setExpenseItems([{ expense_category_id: '', cost_center_id: '', description: '', amount: '' }]);
     setAttachmentFile(null);
@@ -295,8 +305,10 @@ function Treasury() {
       transaction_number: t.transaction_number || '',
       transaction_date: t.transaction_date ? t.transaction_date.split('T')[0] : new Date().toISOString().split('T')[0],
       customer_id: t.customer_id || '', supplier_id: t.supplier_id || '', employee_id: t.employee_id || '',
-      employee_name: t.employee_name || '', party_type: t.party_type || 'employee', amount: t.amount || '',
-      currency: t.currency || 'EGP', exchange_rate: t.exchange_rate ? t.exchange_rate.toString() : '1',
+      employee_name: t.employee_name || '', party_type: t.party_type || 'employee',
+      partner_id: t.partner_id || '',
+      amount: t.amount || '', currency: t.currency || 'EGP',
+      exchange_rate: t.exchange_rate ? t.exchange_rate.toString() : '1',
       payment_method: t.payment_method || 'cash', bank_account_id: t.bank_account_id || '',
       bank_name: t.bank_name || '', account_number: t.account_number || '', check_number: t.check_number || '',
       description: t.description || '', purpose: t.purpose || t.description || '',
@@ -440,13 +452,14 @@ function Treasury() {
     return false;
   };
 
-   const refreshCurrentTab = () => {
+  const refreshCurrentTab = () => {
     if (mainTab === 'income' || mainTab === 'outcome') {
-      fetchTransactions({ status: subTab }); // ← شيلنا type
+      fetchTransactions({ status: subTab });
     } else if (mainTab === 'balance') {
       fetchBalance();
     }
   };
+
   const validateBalance = () => {
     const numericAmount = parseFloat(formData.amount) || 0;
     if (!outTypes.includes(selectedType) && selectedType !== 'bank_transfer') return { ok: true };
@@ -479,7 +492,6 @@ function Treasury() {
     e.preventDefault();
     const validation = validateBalance();
     if (!validation.ok && !pendingSubmit) {
-      // منع force للـ entry_accountant — يسمح بس للـ admin/finance
       if (role === 'entry_accountant') {
         setMessage('❌ ' + validation.message.replace(/\n/g, ' '));
         return;
@@ -501,18 +513,32 @@ function Treasury() {
         submitData.employee_name = emp?.full_name || emp?.username || submitData.employee_name || '';
       }
 
+      // Handle partner
+      if (selectedType === 'partner_financing' || selectedType === 'partner_payment') {
+        if (!submitData.partner_id) {
+          setMessage('❌ اختر الشريك');
+          return;
+        }
+        const partner = partners.find(p => p.id == submitData.partner_id);
+        submitData.employee_name = partner?.name || '';
+        submitData.employee_id = null;
+        submitData.supplier_id = null;
+        submitData.customer_id = null;
+      }
+
       if ((selectedType === 'custody_payment' || selectedType === 'salary_advance') && submitData.party_type === 'employee' && !submitData.employee_id) {
         setMessage('❌ اختر الموظف');
         return;
       }
       if ((selectedType === 'custody_settlement' || selectedType === 'custody_return') && !submitData.custody_id) {
-        setMessage('❌ الموظف ده مفهوش عهدة نشطة — مينفعش تعمل تسوية/رد عهدة بدون عهدة مرتبطة');
+        setMessage(' الموظف ده مفهوش عهدة نشطة');
         return;
       }
       if ((selectedType === 'custody_payment' || selectedType === 'salary_advance') && submitData.party_type === 'supplier' && !submitData.supplier_id) {
         setMessage('❌ اختر المورد');
         return;
       }
+
       if (submitData.party_type === 'supplier' && submitData.supplier_id) {
         const sup = suppliers.find(s => s.id == submitData.supplier_id);
         submitData.employee_name = sup?.supplier_name || sup?.name || '';
@@ -526,9 +552,11 @@ function Treasury() {
         submitData.employee_id = null;
         submitData.supplier_id = null;
       }
+
       if (!submitData.employee_id) submitData.employee_id = null;
       if (!submitData.supplier_id) submitData.supplier_id = null;
       if (!submitData.customer_id) submitData.customer_id = null;
+      if (!submitData.partner_id) submitData.partner_id = null;
       if (!submitData.bank_account_id) submitData.bank_account_id = null;
 
       if (selectedType === 'expense') {
@@ -666,12 +694,12 @@ function Treasury() {
     }
   };
 
-    const getTypeLabel = (type) => {
+  const getTypeLabel = (type) => {
     const all = [...INCOME_TYPES, ...OUTCOME_TYPES, { value: 'outcome', label: 'صرف' }, { value: 'income', label: 'إيراد' }];
     return all.find(t => t.value === type)?.label || type;
   };
 
-    const getTypeColor = (type) => {
+  const getTypeColor = (type) => {
     const all = [...INCOME_TYPES, ...OUTCOME_TYPES, { value: 'outcome', color: '#dc2626' }, { value: 'income', color: '#059669' }];
     return all.find(t => t.value === type)?.color || '#6c757d';
   };
@@ -682,7 +710,7 @@ function Treasury() {
 
   const getPaymentMethodLabel = (pm) => {
     if (pm === 'cash') return '💵 نقدي';
-    if (pm === 'bank') return '🏦 بنكي';
+    if (pm === 'bank') return ' بنكي';
     if (pm === 'check') return '📝 شيك';
     return pm || '-';
   };
@@ -708,7 +736,7 @@ function Treasury() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto', direction: 'rtl' }}>
-       <h1 style={{ textAlign: 'center', marginBottom: '20px', color: '#1f2937' }}>
+      <h1 style={{ textAlign: 'center', marginBottom: '20px', color: '#1f2937' }}>
         نظام الخزينة والبنك
       </h1>
 
@@ -722,15 +750,15 @@ function Treasury() {
           🏠 الرئيسية
         </button>
         <button onClick={() => window.location.href = '/treasury-module'} style={{
-  padding: '8px 20px', backgroundColor: '#2563eb', color: 'white',
-  border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
-  fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px'
-}}>
-  💰 الخزينة
-</button>
+          padding: '8px 20px', backgroundColor: '#2563eb', color: 'white',
+          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+          fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px'
+        }}>
+          💰 الخزينة
+        </button>
       </div>
 
-      {/* ═══ MAIN TABS ═══ */}
+      {/* ═══ MAIN TABS ══ */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '3px solid #e5e7eb', paddingBottom: '0' }}>
         {[
           { key: 'outcome', label: '📤 إذن صرف', color: '#dc2626' },
@@ -764,7 +792,7 @@ function Treasury() {
         ))}
       </div>
 
-      {/* ═══ MESSAGE ═══ */}
+      {/* ══ MESSAGE ═══ */}
       {message && (
         <p style={{
           padding: '12px',
@@ -784,10 +812,9 @@ function Treasury() {
       {/* ═══════════════════════════════════════ */}
       {mainTab === 'outcome' && !showForm && (
         <div>
-          {/* Outcome Type Selection */}
           <div style={{ marginBottom: '20px' }}>
             <h3 style={{ color: '#dc2626', marginBottom: '15px' }}>
-              📤 إذن صرف جديد — اختر النوع
+               إذن صرف جديد — اختر النوع
             </h3>
             <div style={{
               display: 'grid',
@@ -828,7 +855,6 @@ function Treasury() {
             </div>
           </div>
 
-          {/* Workflow Sub-tabs */}
           <div style={{
             display: 'flex',
             gap: '4px',
@@ -859,7 +885,6 @@ function Treasury() {
             ))}
           </div>
 
-          {/* Payment Filter */}
           <div style={{
             display: 'flex',
             gap: '4px',
@@ -885,7 +910,6 @@ function Treasury() {
             ))}
           </div>
 
-          {/* Outcome Table */}
           <h3 style={{ marginBottom: '12px', color: '#dc2626' }}>
             📤 إذون الصرف — {WORKFLOW_TABS.find(t => t.key === subTab)?.label}
             {' '}({filterByPayment(transactions.filter(t => t.transaction_type === 'outcome' || OUTCOME_TYPES.some(it => it.value === t.transaction_type))).length})
@@ -933,20 +957,14 @@ function Treasury() {
                         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
                         <td style={tdStyle}>{idx + 1}</td>
-                        <td style={{ ...tdStyle, fontWeight: 'bold', color: '#1f2937' }}>
-                          {t.transaction_number}
-                        </td>
-                        <td style={tdStyle}>
-                          {t.transaction_date ? new Date(t.transaction_date).toLocaleDateString('ar-EG') : '-'}
-                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 'bold', color: '#1f2937' }}>{t.transaction_number}</td>
+                        <td style={tdStyle}>{t.transaction_date ? new Date(t.transaction_date).toLocaleDateString('ar-EG') : '-'}</td>
                         <td style={tdStyle}>
                           <span style={{ color: getTypeColor(t.transaction_type), fontWeight: 'bold', fontSize: '12px' }}>
                             {getTypeLabel(t.transaction_type)}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, fontWeight: 'bold' }}>
-                          {parseFloat(t.amount || 0).toFixed(2)}
-                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 'bold' }}>{parseFloat(t.amount || 0).toFixed(2)}</td>
                         <td style={tdStyle}>{t.currency}</td>
                         <td style={{ ...tdStyle, fontSize: '12px' }}>{party}</td>
                         <td style={tdStyle}>{getPaymentMethodLabel(t.payment_method)}</td>
@@ -1011,7 +1029,6 @@ function Treasury() {
       {/* ═══════════════════════════════════════ */}
       {mainTab === 'income' && !showForm && (
         <div>
-          {/* Income Type Selection */}
           <div style={{ marginBottom: '20px' }}>
             <h3 style={{ color: '#059669', marginBottom: '15px' }}>
               📥 إذن إيراد جديد — اختر النوع
@@ -1055,7 +1072,6 @@ function Treasury() {
             </div>
           </div>
 
-          {/* Workflow Sub-tabs */}
           <div style={{
             display: 'flex',
             gap: '4px',
@@ -1086,7 +1102,6 @@ function Treasury() {
             ))}
           </div>
 
-          {/* Payment Filter */}
           <div style={{
             display: 'flex',
             gap: '4px',
@@ -1112,7 +1127,6 @@ function Treasury() {
             ))}
           </div>
 
-          {/* Income Table */}
           <h3 style={{ marginBottom: '12px', color: '#059669' }}>
             📥 إذون الإيراد — {WORKFLOW_TABS.find(t => t.key === subTab)?.label}
             {' '}({filterByPayment(transactions.filter(t => t.transaction_type === 'income' || INCOME_TYPES.some(it => it.value === t.transaction_type))).length})
@@ -1160,20 +1174,14 @@ function Treasury() {
                         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
                         <td style={tdStyle}>{idx + 1}</td>
-                        <td style={{ ...tdStyle, fontWeight: 'bold', color: '#1f2937' }}>
-                          {t.transaction_number}
-                        </td>
-                        <td style={tdStyle}>
-                          {t.transaction_date ? new Date(t.transaction_date).toLocaleDateString('ar-EG') : '-'}
-                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 'bold', color: '#1f2937' }}>{t.transaction_number}</td>
+                        <td style={tdStyle}>{t.transaction_date ? new Date(t.transaction_date).toLocaleDateString('ar-EG') : '-'}</td>
                         <td style={tdStyle}>
                           <span style={{ color: getTypeColor(t.transaction_type), fontWeight: 'bold', fontSize: '12px' }}>
                             {getTypeLabel(t.transaction_type)}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, fontWeight: 'bold' }}>
-                          {parseFloat(t.amount || 0).toFixed(2)}
-                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 'bold' }}>{parseFloat(t.amount || 0).toFixed(2)}</td>
                         <td style={tdStyle}>{t.currency}</td>
                         <td style={{ ...tdStyle, fontSize: '12px' }}>{party}</td>
                         <td style={tdStyle}>{getPaymentMethodLabel(t.payment_method)}</td>
@@ -1235,7 +1243,7 @@ function Treasury() {
 
       {/* ═══════════════════════════════════════ */}
       {/* ═══ BALANCE TAB ═══ */}
-      {/* ═══════════════════════════════════════ */}
+      {/* ══════════════════════════════════════ */}
       {mainTab === 'balance' && (
         <>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -1254,7 +1262,7 @@ function Treasury() {
             <button onClick={() => setStatementModal(true)} style={{
               padding: '10px 20px', backgroundColor: '#7c3aed', color: 'white',
               border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'
-            }}>📋 كشف حساب</button>
+            }}> كشف حساب</button>
             <button onClick={handleDownloadTemplate} style={{
               padding: '10px 20px', backgroundColor: '#ea580c', color: 'white',
               border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'
@@ -1266,7 +1274,6 @@ function Treasury() {
             <input id="excel-import-input" type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportExcel} />
           </div>
 
-          {/* BALANCE CARDS */}
           <div style={{ marginBottom: '20px' }}>
             {['EGP', 'USD', 'EUR'].map(curr => (
               <div key={curr} style={{ marginBottom: '15px' }}>
@@ -1274,7 +1281,7 @@ function Treasury() {
                   color: curr === 'EGP' ? '#059669' : curr === 'USD' ? '#2563eb' : '#7c3aed',
                   marginBottom: '8px'
                 }}>
-                  {curr === 'EGP' ? '🇪🇬 جنيه مصري' : curr === 'USD' ? '🇺🇸 دولار' : '🇪🇺 يورو'} ({curr})
+                  {curr === 'EGP' ? '🇪 جنيه مصري' : curr === 'USD' ? '🇺🇸 دولار' : '🇺 يورو'} ({curr})
                 </h4>
                 <div style={{
                   display: 'grid',
@@ -1370,7 +1377,6 @@ function Treasury() {
               border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
             }}>✕ إغلاق</button>
           </div>
-
           <form onSubmit={handleSubmit}>
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px'
@@ -1421,7 +1427,7 @@ function Treasury() {
                   width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db'
                 }}>
                   <option value="cash">💵 نقدي</option>
-                  <option value="bank">🏦 بنكي</option>
+                  <option value="bank"> بنكي</option>
                   <option value="check">📝 شيك</option>
                 </select>
               </div>
@@ -1452,6 +1458,20 @@ function Treasury() {
                   }} />
                 </div>
               )}
+
+              {/* ═══ PARTNER SELECTION (New) ═══ */}
+              {(selectedType === 'partner_financing' || selectedType === 'partner_payment') && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', color: '#374151', fontSize: '14px' }}>الشريك</label>
+                  <select value={formData.partner_id} onChange={e => setFormData(p => ({...p, partner_id: e.target.value}))} style={{
+                    width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db'
+                  }}>
+                    <option value="">اختر شريك...</option>
+                    {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
+
               {(selectedType === 'customer_payment' || selectedType === 'customer_refund') && (
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', color: '#374151', fontSize: '14px' }}>العميل</label>
@@ -1481,7 +1501,7 @@ function Treasury() {
                     width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db'
                   }}>
                     <option value="employee">👤 موظف</option>
-                    <option value="supplier">🏭 مورد خدمة</option>
+                    <option value="supplier"> مورد خدمة</option>
                     <option value="other">👥 أخرى</option>
                   </select>
                 </div>
@@ -1503,7 +1523,7 @@ function Treasury() {
                       fontSize: '13px', color: employeeCustody ? '#065f46' : '#991b1b'
                     }}>
                       {loadingEmployeeCustody ? '⏳ جاري تحميل رصيد العهدة...' : employeeCustody ? (
-                        <>💼 عهدة <strong>{employeeCustody.custody_number}</strong> — المتبقي: <strong>{parseFloat(employeeCustody.remaining_amount).toFixed(2)} ج.م</strong> من أصل {parseFloat(employeeCustody.amount).toFixed(2)} ج.م</>
+                        <> عهدة <strong>{employeeCustody.custody_number}</strong> — المتبقي: <strong>{parseFloat(employeeCustody.remaining_amount).toFixed(2)} ج.م</strong> من أصل {parseFloat(employeeCustody.amount).toFixed(2)} ج.م</>
                       ) : (
                         <>⚠️ الموظف ده مفهوش عهدة نشطة حاليًا</>
                       )}
@@ -1572,14 +1592,13 @@ function Treasury() {
               )}
             </div>
 
-            {/* ═══ EXPENSE ITEMS (Multi-line) ═══ */}
             {selectedType === 'expense' && (
               <div style={{ color: '#1e293b',
                 marginTop: '20px', padding: '16px', backgroundColor: '#fef3c7',
                 borderRadius: '10px', border: '2px solid #f59e0b'
               }}>
                 <h4 style={{ margin: '0 0 12px 0', color: '#92400e' }}>
-                  📊 بنود المصروف (المجموع لازم = {formData.amount || 0})
+                   بنود المصروف (المجموع لازم = {formData.amount || 0})
                 </h4>
                 <table style={{ color: '#1e293b',
                   width: '100%', borderCollapse: 'collapse', fontSize: '13px',
@@ -1643,7 +1662,6 @@ function Treasury() {
               </div>
             )}
 
-            {/* ═══ FILE UPLOAD ═══ */}
             <div style={{ color: '#1e293b',
               marginTop: '20px', padding: '16px', backgroundColor: '#dbeafe',
               borderRadius: '10px', border: '2px solid #2563eb'
@@ -1669,7 +1687,6 @@ function Treasury() {
               )}
             </div>
 
-            {/* ═══ DESCRIPTION ═══ */}
             <div style={{ marginTop: '20px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', color: '#374151', fontSize: '14px' }}>البيان / الغرض</label>
               <textarea value={formData.description} onChange={e => setFormData(p => ({...p, description: e.target.value, purpose: e.target.value}))} rows="3" placeholder="اكتب البيان هنا..." style={{
@@ -1677,7 +1694,6 @@ function Treasury() {
               }} />
             </div>
 
-            {/* ═══ SKIP WORKFLOW CHECKBOX (Admin/Finance only) ═══ */}
             {(role === 'admin' || role === 'finance') && !editingId && (
               <div style={{ color: '#1e293b', marginTop: '20px', padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '2px solid #f59e0b', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <input
@@ -1688,7 +1704,7 @@ function Treasury() {
                   style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                 />
                 <label htmlFor="skipWorkflow" style={{ fontWeight: 'bold', color: '#92400e', cursor: 'pointer', fontSize: '15px' }}>
-                  ⚡ تخطي المراحل (إنشاء مباشر — بدون مراجعة/اعتماد)
+                   تخطي المراحل (إنشاء مباشر — بدون مراجعة/اعتماد)
                 </label>
               </div>
             )}
@@ -1736,7 +1752,6 @@ function Treasury() {
                 }}>✕ إغلاق</button>
               </div>
             </div>
-
             <div style={{
               textAlign: 'center', marginBottom: '20px',
               borderBottom: '2px solid #1f2937', paddingBottom: '12px'
@@ -1744,7 +1759,6 @@ function Treasury() {
               <h1 style={{ margin: '0 0 8px 0', fontSize: '20px' }}>كشف حساب الخزينة</h1>
               <div>الفترة: {stmtFrom ? new Date(stmtFrom).toLocaleDateString('ar-EG') : 'البداية'} — {stmtTo ? new Date(stmtTo).toLocaleDateString('ar-EG') : 'الآن'}</div>
             </div>
-
             <div style={{
               display: 'flex', gap: '10px', marginBottom: '20px',
               flexWrap: 'wrap', alignItems: 'center'
@@ -1762,7 +1776,6 @@ function Treasury() {
                 border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
               }}>عرض</button>
             </div>
-
             {statementData && (
               <div>
                 <div style={{ display: 'flex', gap: '20px', marginBottom: '15px', flexWrap: 'wrap' }}>
@@ -1810,7 +1823,7 @@ function Treasury() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════ */}
+      {/* ══════════════════════════════════════ */}
       {/* ═══ CONFIRM MODAL ═══ */}
       {/* ═══════════════════════════════════════ */}
       {showConfirm && (
@@ -1893,7 +1906,7 @@ function Treasury() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               marginBottom: '20px', borderBottom: '3px double #1f2937', paddingBottom: '16px'
             }} className="no-print">
-              <h2 style={{ margin: 0, color: '#1f2937' }}>👁️ عرض السند</h2>
+              <h2 style={{ margin: 0, color: '#1f2937' }}>️ عرض السند</h2>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => window.print()} style={{
                   padding: '8px 16px', backgroundColor: '#2563eb', color: 'white',
@@ -1905,17 +1918,15 @@ function Treasury() {
                 }}>✕ إغلاق</button>
               </div>
             </div>
-
             <div style={{
               textAlign: 'center', marginBottom: '24px',
               borderBottom: '2px solid #1f2937', paddingBottom: '16px'
             }}>
               <h1 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>
-                إذن {viewModal.transaction_type && (['customer_payment','advance_return','custody_return','treasury_funding','other_income'].includes(viewModal.transaction_type) ? 'إيراد' : 'صرف')}
+                إذن {viewModal.transaction_type && (['customer_payment','advance_return','custody_return','treasury_funding','partner_financing','other_income'].includes(viewModal.transaction_type) ? 'إيراد' : 'صرف')}
               </h1>
               <div style={{ fontSize: '18px', fontWeight: 'bold' }}>رقم السند: {viewModal.transaction_number}</div>
             </div>
-
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px',
               marginBottom: '20px', fontSize: '14px'
@@ -1929,19 +1940,19 @@ function Treasury() {
               {viewModal.bank_name && <div><strong>البنك:</strong> {viewModal.bank_name}</div>}
               {viewModal.check_number && <div><strong>رقم الشيك:</strong> {viewModal.check_number}</div>}
               {viewModal.employee_name && <div><strong>الموظف/الجهة:</strong> {viewModal.employee_name}</div>}
+              {viewModal.partner_name && <div><strong>الشريك:</strong> {viewModal.partner_name}</div>}
               {viewModal.party_name && <div><strong>الجهة:</strong> {viewModal.party_name}</div>}
               {viewModal.customer_name && <div><strong>العميل:</strong> {viewModal.customer_name}</div>}
               {viewModal.supplier_name && <div><strong>المورد:</strong> {viewModal.supplier_name}</div>}
               {viewModal.transfer_from && <div><strong>تحويل من:</strong> {viewModal.transfer_from} ({viewModal.transfer_from_currency})</div>}
               {viewModal.transfer_to && <div><strong>تحويل إلى:</strong> {viewModal.transfer_to} ({viewModal.transfer_to_currency})</div>}
             </div>
-
             {viewModal.items && viewModal.items.length > 0 && (
               <div style={{ color: '#1e293b',
                 marginBottom: '20px', backgroundColor: '#fef3c7',
                 padding: '12px', borderRadius: '8px', border: '1px solid #f59e0b'
               }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#92400e' }}>📊 بنود المصروف</h4>
+                <h4 style={{ margin: '0 0 8px 0', color: '#92400e' }}> بنود المصروف</h4>
                 <table style={{ color: '#1e293b', width: '100%', borderCollapse: 'collapse', fontSize: '12px', backgroundColor: 'white' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f59e0b', color: 'white' }}>
@@ -1964,7 +1975,6 @@ function Treasury() {
                 </table>
               </div>
             )}
-
             <div style={{ color: '#1e293b',
               backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px',
               marginBottom: '20px', border: '1px solid #e5e7eb'
@@ -1972,7 +1982,6 @@ function Treasury() {
               <strong>البيان:</strong>
               <p style={{ margin: '8px 0 0 0', color: '#374151', lineHeight: '1.6' }}>{viewModal.description || '-'}</p>
             </div>
-
             {viewModal.attachments && viewModal.attachments.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
                 <strong>📎 المرفقات:</strong>
@@ -1985,7 +1994,6 @@ function Treasury() {
                 ))}
               </div>
             )}
-
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px',
               marginTop: '30px', textAlign: 'center'
@@ -2007,9 +2015,6 @@ function Treasury() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════ */}
-      {/* ═══ PRINT STYLES ═══ */}
-      {/* ═══════════════════════════════════════ */}
       <style>{`
         @media print {
           body * { visibility: hidden; }

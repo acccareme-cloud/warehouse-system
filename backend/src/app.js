@@ -59,7 +59,7 @@ const settingsRoutes = require('./routes/settings');
 const partnerFinancingRoutes = require('./routes/partnerFinancing');
 const partnerPaymentRoutes = require('./routes/partnerPayments');
 const equityReportRoutes = require('./routes/equityReport');
-
+const partnersRoutes = require('./routes/partners');
 
 
 // Routes جديدة للمبيعات
@@ -118,6 +118,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/partner-financing', partnerFinancingRoutes);
 app.use('/api/partner-payments', partnerPaymentRoutes);
 app.use('/api/equity-report', equityReportRoutes);
+app.use('/api/partners', partnersRoutes);
 
 // API Routes جديدة للمبيعات
 app.use('/api/tax-settings', taxSettingsRoutes);
