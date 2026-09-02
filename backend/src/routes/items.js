@@ -6,15 +6,25 @@ const router = express.Router();
 // Get all items with warehouse and category names
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const result = await pool.query(`
+    const { show_zero_stock } = req.query;
+    
+    let query = `
       SELECT i.*, w.name as warehouse_name, c.name as category_name, COALESCE(s.quantity, 0) as quantity
-      FROM items i 
-      LEFT JOIN warehouses w ON i.warehouse_id = w.id 
+      FROM items i
+      LEFT JOIN warehouses w ON i.warehouse_id = w.id
       LEFT JOIN categories c ON i.category_id = c.id
-      LEFT JOIN stock s ON i.id = s.item_id 
-      WHERE i.is_active = true OR i.is_active IS NULL
-      ORDER BY i.created_at DESC
-    `);
+      LEFT JOIN stock s ON i.id = s.item_id
+      WHERE (i.is_active = true OR i.is_active IS NULL)
+    `;
+    
+    // إخفاء الأصناف صفر الرصيد إلا لو طُلب إظهارها
+    if (show_zero_stock !== 'true') {
+      query += ` AND COALESCE(s.quantity, 0) > 0`;
+    }
+    
+    query += ` ORDER BY i.created_at DESC`;
+    
+    const result = await pool.query(query);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
