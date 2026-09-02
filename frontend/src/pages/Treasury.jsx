@@ -5,14 +5,13 @@ import { useAuth } from '../context/AuthContext';
 const STATUS_LABELS = {
   pending_review: { label: '⏳ إعداد', color: '#f59e0b', bg: '#fef3c7' },
   rejected_by_review: { label: '❌ مرفوض مراجعة', color: '#dc2626', bg: '#fee2e2' },
-  pending_approval: { label: ' انتظار مراجعة', color: '#2563eb', bg: '#dbeafe' },
+  pending_approval: { label: '👀 انتظار مراجعة', color: '#2563eb', bg: '#dbeafe' },
   rejected_by_finance: { label: '❌ مرفوض مالية', color: '#dc2626', bg: '#fee2e2' },
   approved: { label: '✅ معتمد', color: '#7c3aed', bg: '#ede9fe' },
-  return_requested: { label: '️ مشكلة صرف', color: '#ea580c', bg: '#ffedd5' },
-  active: { label: '💸 تم الصرف', color: '#059669', bg: '#d1fae5' },
+  return_requested: { label: '⚠️ مشكلة', color: '#ea580c', bg: '#ffedd5' },
+  active: { label: '💸 تم الصرف', color: '#059669', bg: '#d1fae5' }, // هيتم تغييرها ديناميكياً
   cancelled: { label: '🚫 ملغي', color: '#6b7280', bg: '#f3f4f6' }
 };
-
 const WORKFLOW_TABS = [
   { key: 'all', label: '📋 الكل' },
   { key: 'pending_review', label: '📝 إعداد' },
