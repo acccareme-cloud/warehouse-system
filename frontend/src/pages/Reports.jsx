@@ -58,17 +58,18 @@ function Reports() {
     from_date: getFirstDayOfMonth(),
     to_date: getLastDayOfMonth()
   });
+ const [showZeroStock, setShowZeroStock] = useState(false);
 
   const printRef = useRef();
   const movementsPrintRef = useRef();
   const stockPrintRef = useRef();
 
   useEffect(() => {
-    fetchItems();
-    fetchWarehouses();
-    fetchMovements();
-    fetchStock();
-  }, []);
+  fetchItems();
+  fetchWarehouses();
+  fetchMovements();
+  fetchStock(showZeroStock);
+}, []);
 
   const fetchItems = async () => {
     try {
@@ -102,14 +103,14 @@ function Reports() {
     }
   };
 
-  const fetchStock = async () => {
-    try {
-      const response = await api.get('/items');
-      setStock(response.data);
-    } catch (err) {
-      console.error('خطأ في تحميل المخزون');
-    }
-  };
+  const fetchStock = async (showZero = false) => {
+  try {
+    const response = await api.get(`/items?show_zero_stock=${showZero}`);
+    setStock(response.data);
+  } catch (err) {
+    console.error('خطأ في تحميل المخزون');
+  }
+};
 
   const fetchCardReport = async (e) => {
     e.preventDefault();
@@ -680,6 +681,45 @@ function Reports() {
               🖨️ طباعة التقرير
             </button>
           </div>
+    <div style={{ 
+      marginBottom: '15px', 
+      display: 'flex', 
+      gap: '10px', 
+      alignItems: 'center',
+      padding: '10px',
+      backgroundColor: cardBg,
+      borderRadius: '6px',
+      border: `1px solid ${borderColor}`
+    }}>
+      <label style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px', 
+        cursor: 'pointer',
+        color: textColor,
+        fontSize: '14px'
+      }}>
+        <input 
+          type="checkbox" 
+          checked={showZeroStock} 
+          onChange={e => {
+            const newValue = e.target.checked;
+            setShowZeroStock(newValue);
+            fetchStock(newValue);
+          }}
+          style={{ 
+            width: '18px', 
+            height: '18px', 
+            cursor: 'pointer',
+            accentColor: '#0d9488'
+          }}
+        />
+        <span>إظهار الأصناف صفر الرصيد</span>
+      </label>
+      <span style={{ color: subTextColor, fontSize: '12px' }}>
+        {showZeroStock ? '(عرض الكل)' : '(إخفاء صفر الرصيد)'}
+      </span>
+    </div>
           <div ref={stockPrintRef}>
             <table style={{
               width: '100%',
