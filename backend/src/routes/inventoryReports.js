@@ -31,20 +31,34 @@ router.get('/summary', verifyToken, async (req, res) => {
 router.get('/items', verifyToken, async (req, res) => {
   const { category_id, supplier_id, has_serial, low_stock } = req.query;
   try {
-    let query = `
-      SELECT 
-        i.id, i.code, i.name, i.category_id, ic.name as category_name,
-        i.quantity, i.unit_cost, i.quantity * i.unit_cost as total_value,
-        i.tax_inventory_quantity, i.tax_inventory_quantity * i.unit_cost as tax_value,
-        i.reorder_level, i.status,
-        i.is_vat_exempt, i.is_profit_tax_exempt,
-        i.customs_duty_rate, i.customs_duty_amount,
-        s.name as supplier_name
-      FROM items i
-      LEFT JOIN item_categories ic ON i.category_id = ic.id
-      LEFT JOIN suppliers s ON i.supplier_id = s.id
-      WHERE i.status = 'active'
-    `;
+   let query = `
+  SELECT
+    i.id, i.code, i.name, i.category_id, ic.name as category_name,
+    i.quantity, i.unit_cost, i.quantity * i.unit_cost as total_value,
+    i.tax_inventory_quantity, i.tax_inventory_quantity * i.unit_cost as tax_value,
+    i.reorder_level, i.status,
+    i.is_vat_exempt, i.is_profit_tax_exempt,
+    i.customs_duty_rate, i.customs_duty_amount,
+    s.name as supplier_name
+  FROM items i
+  LEFT JOIN item_categories ic ON i.category_id = ic.id
+  LEFT JOIN suppliers s ON i.supplier_id = s.id
+  WHERE i.status = 'active'
+`;
+
+const params = [];
+if(category_id) { params.push(category_id); query += ` AND i.category_id = $${params.length}`; }
+if(supplier_id) { params.push(supplier_id); query += ` AND i.supplier_id = $${params.length}`; }
+if(has_serial === 'true') { query += ` AND i.has_serial = true`; }
+if(low_stock === 'true') { query += ` AND i.quantity <= i.reorder_level`; }
+
+// ✅ إضافة فلتر الرصيد (افتراضياً نخفي صفر الرصيد)
+const showZeroStock = req.query.show_zero_stock === 'true';
+if (!showZeroStock) {
+  query += ` AND i.quantity > 0`;
+}
+
+query += ` ORDER BY i.name`;
     const params = [];
     if (category_id) { params.push(category_id); query += ` AND i.category_id = $${params.length}`; }
     if (supplier_id) { params.push(supplier_id); query += ` AND i.supplier_id = $${params.length}`; }

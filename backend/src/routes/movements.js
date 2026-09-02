@@ -52,17 +52,46 @@ router.post('/', verifyToken, requireRole('storekeeper', 'admin'), async (req, r
   }
 });
 
-// Get all movements
+// Get all movements with filters
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const result = await pool.query(`
+    const { warehouse_id, movement_type, from_date, to_date } = req.query;
+    
+    let query = `
       SELECT m.*, i.name as item_name, w.name as warehouse_name, u.full_name as done_by_name
       FROM stock_movements m
       JOIN items i ON m.item_id = i.id
       JOIN warehouses w ON m.warehouse_id = w.id
       LEFT JOIN users u ON m.done_by = u.id
-      ORDER BY m.moved_at DESC
-    `);
+      WHERE 1=1
+    `;
+    
+    const values = [];
+    let paramIndex = 1;
+    
+    if (warehouse_id) {
+      query += ` AND m.warehouse_id = $${paramIndex++}`;
+      values.push(warehouse_id);
+    }
+    
+    if (movement_type) {
+      query += ` AND m.movement_type = $${paramIndex++}`;
+      values.push(movement_type);
+    }
+    
+    if (from_date) {
+      query += ` AND m.moved_at >= $${paramIndex++}::date`;
+      values.push(from_date);
+    }
+    
+    if (to_date) {
+      query += ` AND m.moved_at <= $${paramIndex++}::date`;
+      values.push(to_date);
+    }
+    
+    query += ` ORDER BY m.moved_at DESC`;
+    
+    const result = await pool.query(query, values);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
