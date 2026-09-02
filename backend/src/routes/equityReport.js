@@ -7,11 +7,12 @@ const router = express.Router();
 // Get equity report
 router.get('/', verifyToken, async (req, res) => {
   try {
-    // Total assets (treasury + bank accounts + inventory value)
-    const assetsResult = await pool.query(`
+    // Total assets
+    const treasuryResult = await pool.query(`
       SELECT 
-        (SELECT COALESCE(SUM(amount), 0) FROM treasury_transactions WHERE type = 'in') -
-        (SELECT COALESCE(SUM(amount), 0) FROM treasury_transactions WHERE type = 'out') as treasury_balance
+        COALESCE(SUM(CASE WHEN type = 'in' THEN amount ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN type = 'out' THEN amount ELSE 0 END), 0) as treasury_balance
+      FROM treasury_transactions
     `);
     
     const bankResult = await pool.query(`
@@ -25,7 +26,7 @@ router.get('/', verifyToken, async (req, res) => {
       WHERE is_active = true
     `);
     
-    const treasuryBalance = parseFloat(assetsResult.rows[0].treasury_balance || 0);
+    const treasuryBalance = parseFloat(treasuryResult.rows[0].treasury_balance || 0);
     const bankBalance = parseFloat(bankResult.rows[0].total_bank_balance || 0);
     const inventoryValue = parseFloat(inventoryResult.rows[0].inventory_value || 0);
     const totalAssets = treasuryBalance + bankBalance + inventoryValue;
@@ -33,8 +34,9 @@ router.get('/', verifyToken, async (req, res) => {
     // Total liabilities (partner financing - partner payments)
     const liabilitiesResult = await pool.query(`
       SELECT 
-        (SELECT COALESCE(SUM(amount), 0) FROM partner_financing) -
-        (SELECT COALESCE(SUM(amount), 0) FROM partner_payments) as partner_balance
+        COALESCE(SUM(pf.amount), 0) - COALESCE(SUM(pp.amount), 0) as partner_balance
+      FROM partner_financing pf
+      LEFT JOIN partner_payments pp ON pp.partner_id = pf.partner_id
     `);
     
     const totalLiabilities = parseFloat(liabilitiesResult.rows[0].partner_balance || 0);

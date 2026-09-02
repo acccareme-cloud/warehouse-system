@@ -8,9 +8,10 @@ const router = express.Router();
 router.get('/', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT pp.*, p.name as partner_name
+      SELECT pp.*, p.name as partner_name, u.full_name as created_by_name
       FROM partner_payments pp
       LEFT JOIN partners p ON pp.partner_id = p.id
+      LEFT JOIN users u ON pp.created_by = u.id
       ORDER BY pp.payment_date DESC, pp.created_at DESC
     `);
     res.json(result.rows);
@@ -34,39 +35,6 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('[POST /partner-payments] Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// Get partner balance
-router.get('/balance/:partner_id', verifyToken, async (req, res) => {
-  try {
-    const { partner_id } = req.params;
-    
-    const financingResult = await pool.query(`
-      SELECT COALESCE(SUM(amount), 0) as total_financing
-      FROM partner_financing
-      WHERE partner_id = $1
-    `, [partner_id]);
-    
-    const paymentResult = await pool.query(`
-      SELECT COALESCE(SUM(amount), 0) as total_payments
-      FROM partner_payments
-      WHERE partner_id = $1
-    `, [partner_id]);
-    
-    const totalFinancing = parseFloat(financingResult.rows[0].total_financing);
-    const totalPayments = parseFloat(paymentResult.rows[0].total_payments);
-    const balance = totalFinancing - totalPayments;
-    
-    res.json({
-      partner_id,
-      total_financing: totalFinancing,
-      total_payments: totalPayments,
-      balance: balance,
-    });
-  } catch (err) {
-    console.error('[GET /partner-payments/balance] Error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });

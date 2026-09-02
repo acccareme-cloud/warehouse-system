@@ -1,20 +1,45 @@
 // frontend/src/i18n/translations.js
 //
-// قاموس الترجمة. أضف مفتاح جديد هنا كل ما تحوّل شاشة، بنفس الاسم في اللغتين.
-// استخدام: const { t } = useLanguage();  ...  t('login.title')
+// قاموس الترجمة الكامل للنظام
+// أضف مفتاح جديد هنا كل ما تحوّل شاشة، بنفس الاسم في اللغتين.
+// استخدام: const { t } = useLanguage(); ... t('login.title')
 
-// frontend/src/translations.js
+// ============================================================
+// 1. قاموس الترجمات (لازم يكون الأول عشان دالة translate تستخدمه)
+// ============================================================
 export const translations = {
   ar: {
-    // Module Hub
+    // ===== Dashboard =====
+    'dashboard.heading': 'لوحة التحكم',
+    'dashboard.logout': 'تسجيل الخروج',
+    'dashboard.open': 'فتح',
+    'dashboard.welcome': 'مرحباً بك',
+    'dashboard.modules.treasury.title': 'إدارة الخزينة',
+    'dashboard.modules.treasury.desc': 'إدارة الخزينة والحركات المالية',
+    'dashboard.modules.custody.title': 'إدارة العهد',
+    'dashboard.modules.custody.desc': 'إدارة العهد والتسويات',
+    'dashboard.modules.sales.title': 'إدارة المبيعات',
+    'dashboard.modules.sales.desc': 'إدارة المبيعات والعملاء',
+    'dashboard.modules.purchases.title': 'إدارة المشتريات',
+    'dashboard.modules.purchases.desc': 'إدارة المشتريات والموردين',
+    'dashboard.modules.locations.title': 'المواقع',
+    'dashboard.modules.locations.desc': 'إدارة المواقع',
+    'dashboard.modules.reports.title': 'التقارير',
+    'dashboard.modules.reports.desc': 'عرض التقارير',
+    'dashboard.modules.employees.title': 'الموظفين',
+    'dashboard.modules.employees.desc': 'إدارة الموظفين',
+    'dashboard.modules.warehouse.title': 'إدارة المخازن',
+    'dashboard.modules.warehouse.desc': 'إدارة المخازن والأصناف',
+
+    // ===== Module Hub =====
     'moduleHub.back': 'رجوع',
     'moduleHub.warehouseTitle': 'إدارة المخازن',
     'moduleHub.salesTitle': 'إدارة المبيعات',
     'moduleHub.purchasesTitle': 'إدارة المشتريات',
     'moduleHub.treasuryTitle': 'إدارة الخزينة',
     'moduleHub.custodyTitle': 'إدارة العهد',
-    
-    // Warehouse Module
+
+    // ===== Warehouse Module =====
     'moduleHub.menus.items.title': 'الأصناف',
     'moduleHub.menus.items.desc': 'إدارة أصناف المخزون',
     'moduleHub.menus.receipts.title': 'إذن استلام',
@@ -27,8 +52,8 @@ export const translations = {
     'moduleHub.menus.quality.desc': 'فحص جودة الأصناف',
     'moduleHub.menus.warehouseIssues.title': 'مشاكل المخزن',
     'moduleHub.menus.warehouseIssues.desc': 'تتبع المشاكل والتالف',
-    
-    // Sales Module
+
+    // ===== Sales Module =====
     'moduleHub.menus.salesOrders.title': 'أوامر البيع',
     'moduleHub.menus.salesOrders.desc': 'إدارة أوامر البيع',
     'moduleHub.menus.salesInvoices.title': 'فواتير البيع',
@@ -51,8 +76,8 @@ export const translations = {
     'moduleHub.menus.customerReports.desc': 'كشف حساب العملاء',
     'moduleHub.menus.taxSettings.title': 'إعدادات الضرائب',
     'moduleHub.menus.taxSettings.desc': 'إعدادات ضريبة القيمة المضافة',
-    
-    // Treasury Module
+
+    // ===== Treasury Module =====
     'moduleHub.menus.receiptVouchers.title': 'سندات القبض',
     'moduleHub.menus.receiptVouchers.desc': 'تحصيل المبالغ من العملاء',
     'moduleHub.menus.payments.title': 'سندات الصرف',
@@ -71,8 +96,8 @@ export const translations = {
     'moduleHub.menus.partnerPayment.desc': 'صرف مبالغ للشركاء',
     'moduleHub.menus.equityReport.title': 'تقرير حقوق الملكية',
     'moduleHub.menus.equityReport.desc': 'تقرير شامل لحقوق الملكية',
-    
-    // Custody Module
+
+    // ===== Custody Module =====
     'moduleHub.menus.custodySubmissions.title': 'تقديم تسوية',
     'moduleHub.menus.custodySubmissions.desc': 'تقديم مصروفات على العهدة',
     'moduleHub.menus.custodyApprovals.title': 'اعتماد تسويات',
@@ -87,32 +112,38 @@ export const translations = {
     'moduleHub.menus.custodySettlementVoucher.desc': 'طباعة سند التسوية',
     'moduleHub.menus.agingReport.title': 'العهد المتأخرة',
     'moduleHub.menus.agingReport.desc': 'تقرير العهد المفتوحة المتأخرة',
-    'moduleHub.menus.partnerFinancing.partner': 'الشريك',
-'moduleHub.menus.partnerFinancing.amount': 'المبلغ',
-'moduleHub.menus.partnerFinancing.date': 'التاريخ',
-'moduleHub.menus.partnerFinancing.notes': 'ملاحظات',
-'moduleHub.menus.partnerFinancing.history': 'سجل التمويلات',
-'moduleHub.menus.partnerPayment.partner': 'الشريك',
-'moduleHub.menus.partnerPayment.amount': 'المبلغ',
-'moduleHub.menus.partnerPayment.date': 'التاريخ',
-'moduleHub.menus.partnerPayment.method': 'طريقة الدفع',
-'moduleHub.menus.partnerPayment.notes': 'ملاحظات',
-'moduleHub.menus.partnerPayment.history': 'سجل المدفوعات',
-'paymentMethod.cash': 'نقدي',
-'paymentMethod.bankTransfer': 'تحويل بنكي',
-'paymentMethod.check': 'شيك',
-'equityReport.totalAssets': 'إجمالي الأصول',
-'equityReport.totalLiabilities': 'إجمالي الالتزامات',
-'equityReport.totalEquity': 'إجمالي حقوق الملكية',
-'equityReport.partnerCapital': 'رأس مال الشركاء',
-'equityReport.retainedEarnings': 'الأرباح المحتجزة',
-'equityReport.breakdown': 'تفصيل حقوق الملكية',
-'currency': 'ج.م',
-'common.select': 'اختر',
-'common.saving': 'جاري الحفظ...',
 
-    
-    // Common
+    // ===== Partner Financing & Payment Details =====
+    'moduleHub.menus.partnerFinancing.partner': 'الشريك',
+    'moduleHub.menus.partnerFinancing.amount': 'المبلغ',
+    'moduleHub.menus.partnerFinancing.date': 'التاريخ',
+    'moduleHub.menus.partnerFinancing.notes': 'ملاحظات',
+    'moduleHub.menus.partnerFinancing.history': 'سجل التمويلات',
+    'moduleHub.menus.partnerPayment.partner': 'الشريك',
+    'moduleHub.menus.partnerPayment.amount': 'المبلغ',
+    'moduleHub.menus.partnerPayment.date': 'التاريخ',
+    'moduleHub.menus.partnerPayment.method': 'طريقة الدفع',
+    'moduleHub.menus.partnerPayment.notes': 'ملاحظات',
+    'moduleHub.menus.partnerPayment.history': 'سجل المدفوعات',
+
+    // ===== Payment Methods & Equity =====
+    'paymentMethod.cash': 'نقدي',
+    'paymentMethod.bankTransfer': 'تحويل بنكي',
+    'paymentMethod.check': 'شيك',
+    'equityReport.totalAssets': 'إجمالي الأصول',
+    'equityReport.totalLiabilities': 'إجمالي الالتزامات',
+    'equityReport.totalEquity': 'إجمالي حقوق الملكية',
+    'equityReport.partnerCapital': 'رأس مال الشركاء',
+    'equityReport.retainedEarnings': 'الأرباح المحتجزة',
+    'equityReport.breakdown': 'تفصيل حقوق الملكية',
+    'equityReport.treasuryBalance': 'رصيد الخزينة',
+    'equityReport.bankBalance': 'رصيد البنوك',
+    'equityReport.inventoryValue': 'قيمة المخزون',
+    'currency': 'ج.م',
+    'common.select': 'اختر',
+    'common.saving': 'جاري الحفظ...',
+
+    // ===== Common =====
     'common.save': 'حفظ',
     'common.cancel': 'إلغاء',
     'common.delete': 'حذف',
@@ -133,10 +164,20 @@ export const translations = {
     'common.error': 'حدث خطأ',
     'common.warning': 'تحذير',
     'common.info': 'معلومة',
-    
-    // Login
+    'common.actions': 'الإجراءات',
+    'common.status': 'الحالة',
+    'common.date': 'التاريخ',
+    'common.amount': 'المبلغ',
+    'common.name': 'الاسم',
+    'common.code': 'الكود',
+    'common.notes': 'ملاحظات',
+    'common.createdBy': 'أنشأه',
+    'common.createdAt': 'تاريخ الإنشاء',
+    'common.all': 'الكل',
+
+    // ===== Login =====
     'login.heading': 'تسجيل الدخول',
-    'login.subheading': 'مرحباً بك في نظام إدارة المخازن',
+    'login.subheading': 'مرحباً بك في نظام كير ميد',
     'login.username': 'اسم المستخدم',
     'login.password': 'كلمة المرور',
     'login.submit': 'دخول',
@@ -145,19 +186,79 @@ export const translations = {
     'login.errBadCreds': 'اسم المستخدم أو كلمة المرور غير صحيحة',
     'login.errServer': 'خطأ في الخادم: {code}',
     'login.errUnknown': 'حدث خطأ غير معروف',
-    'login.brandDesc': 'نظام متكامل لإدارة المخازن والمبيعات والمشتريات والخزينة',
+    'login.brandDesc': 'نظام متكامل لإدارة المخازن والمبيعات والمشتريات والخزينة والعهدة',
+
+    // ===== Reports =====
+    'reports.title': 'التقارير',
+    'reports.movements': 'حركات المخزون',
+    'reports.stock': 'رصيد المخزون',
+    'reports.card': 'كارت صنف',
+    'reports.print': 'طباعة التقرير',
+    'reports.showZeroStock': 'إظهار الأصناف صفر الرصيد',
+    'reports.hideZeroStock': 'إخفاء صفر الرصيد',
+    'reports.fromDate': 'من تاريخ',
+    'reports.toDate': 'إلى تاريخ',
+    'reports.warehouse': 'المخزن',
+    'reports.movementType': 'نوع الحركة',
+    'reports.itemCode': 'كود الصنف',
+    'reports.itemName': 'اسم الصنف',
+    'reports.quantity': 'الكمية',
+    'reports.unit': 'الوحدة',
+    'reports.unitCost': 'تكلفة القطعة',
+    'reports.totalValue': 'القيمة الإجمالية',
+    'reports.active': 'نشط',
+    'reports.inactive': 'غير نشط',
+    'reports.in': 'إضافة',
+    'reports.out': 'صرف',
+
+    // ===== Status =====
+    'status.active': 'نشط',
+    'status.inactive': 'غير نشط',
+    'status.pending': 'قيد الانتظار',
+    'status.approved': 'معتمد',
+    'status.rejected': 'مرفوض',
+    'status.draft': 'مسودة',
+    'status.completed': 'مكتمل',
+    'status.cancelled': 'ملغي',
+
+    // ===== Currency =====
+    'currency.usd': 'دولار',
+    'currency.eur': 'يورو',
+    'currency.sar': 'ريال',
   },
-  
+
   en: {
-    // Module Hub
+    // ===== Dashboard =====
+    'dashboard.heading': 'Dashboard',
+    'dashboard.logout': 'Logout',
+    'dashboard.open': 'Open',
+    'dashboard.welcome': 'Welcome',
+    'dashboard.modules.treasury.title': 'Treasury Management',
+    'dashboard.modules.treasury.desc': 'Manage treasury and financial transactions',
+    'dashboard.modules.custody.title': 'Custody Management',
+    'dashboard.modules.custody.desc': 'Manage custody and settlements',
+    'dashboard.modules.sales.title': 'Sales Management',
+    'dashboard.modules.sales.desc': 'Manage sales and customers',
+    'dashboard.modules.purchases.title': 'Purchases Management',
+    'dashboard.modules.purchases.desc': 'Manage purchases and suppliers',
+    'dashboard.modules.locations.title': 'Locations',
+    'dashboard.modules.locations.desc': 'Manage locations',
+    'dashboard.modules.reports.title': 'Reports',
+    'dashboard.modules.reports.desc': 'View reports',
+    'dashboard.modules.employees.title': 'Employees',
+    'dashboard.modules.employees.desc': 'Manage employees',
+    'dashboard.modules.warehouse.title': 'Warehouse Management',
+    'dashboard.modules.warehouse.desc': 'Manage warehouses and items',
+
+    // ===== Module Hub =====
     'moduleHub.back': 'Back',
     'moduleHub.warehouseTitle': 'Warehouse Management',
     'moduleHub.salesTitle': 'Sales Management',
     'moduleHub.purchasesTitle': 'Purchases Management',
     'moduleHub.treasuryTitle': 'Treasury Management',
     'moduleHub.custodyTitle': 'Custody Management',
-    
-    // Warehouse Module
+
+    // ===== Warehouse Module =====
     'moduleHub.menus.items.title': 'Items',
     'moduleHub.menus.items.desc': 'Manage inventory items',
     'moduleHub.menus.receipts.title': 'Receipt Voucher',
@@ -170,8 +271,8 @@ export const translations = {
     'moduleHub.menus.quality.desc': 'Inspect item quality',
     'moduleHub.menus.warehouseIssues.title': 'Warehouse Issues',
     'moduleHub.menus.warehouseIssues.desc': 'Track problems and damages',
-    
-    // Sales Module
+
+    // ===== Sales Module =====
     'moduleHub.menus.salesOrders.title': 'Sales Orders',
     'moduleHub.menus.salesOrders.desc': 'Manage sales orders',
     'moduleHub.menus.salesInvoices.title': 'Sales Invoices',
@@ -194,8 +295,8 @@ export const translations = {
     'moduleHub.menus.customerReports.desc': 'Customer account statements',
     'moduleHub.menus.taxSettings.title': 'Tax Settings',
     'moduleHub.menus.taxSettings.desc': 'VAT configuration',
-    
-    // Treasury Module
+
+    // ===== Treasury Module =====
     'moduleHub.menus.receiptVouchers.title': 'Receipt Vouchers',
     'moduleHub.menus.receiptVouchers.desc': 'Collect payments from customers',
     'moduleHub.menus.payments.title': 'Payment Vouchers',
@@ -214,8 +315,8 @@ export const translations = {
     'moduleHub.menus.partnerPayment.desc': 'Pay partners',
     'moduleHub.menus.equityReport.title': 'Equity Report',
     'moduleHub.menus.equityReport.desc': 'Comprehensive equity report',
-    
-    // Custody Module
+
+    // ===== Custody Module =====
     'moduleHub.menus.custodySubmissions.title': 'Submit Settlement',
     'moduleHub.menus.custodySubmissions.desc': 'Submit custody expenses',
     'moduleHub.menus.custodyApprovals.title': 'Approve Settlements',
@@ -230,30 +331,38 @@ export const translations = {
     'moduleHub.menus.custodySettlementVoucher.desc': 'Print settlement voucher',
     'moduleHub.menus.agingReport.title': 'Overdue Custody',
     'moduleHub.menus.agingReport.desc': 'Report on overdue open custody',
+
+    // ===== Partner Financing & Payment Details =====
     'moduleHub.menus.partnerFinancing.partner': 'Partner',
-'moduleHub.menus.partnerFinancing.amount': 'Amount',
-'moduleHub.menus.partnerFinancing.date': 'Date',
-'moduleHub.menus.partnerFinancing.notes': 'Notes',
-'moduleHub.menus.partnerFinancing.history': 'Financing History',
-'moduleHub.menus.partnerPayment.partner': 'Partner',
-'moduleHub.menus.partnerPayment.amount': 'Amount',
-'moduleHub.menus.partnerPayment.date': 'Date',
-'moduleHub.menus.partnerPayment.method': 'Payment Method',
-'moduleHub.menus.partnerPayment.notes': 'Notes',
-'moduleHub.menus.partnerPayment.history': 'Payment History',
-'paymentMethod.cash': 'Cash',
-'paymentMethod.bankTransfer': 'Bank Transfer',
-'paymentMethod.check': 'Check',
-'equityReport.totalAssets': 'Total Assets',
-'equityReport.totalLiabilities': 'Total Liabilities',
-'equityReport.totalEquity': 'Total Equity',
-'equityReport.partnerCapital': 'Partner Capital',
-'equityReport.retainedEarnings': 'Retained Earnings',
-'equityReport.breakdown': 'Equity Breakdown',
-'currency': 'EGP',
-'common.select': 'Select',
-'common.saving': 'Saving...',
-    // Common
+    'moduleHub.menus.partnerFinancing.amount': 'Amount',
+    'moduleHub.menus.partnerFinancing.date': 'Date',
+    'moduleHub.menus.partnerFinancing.notes': 'Notes',
+    'moduleHub.menus.partnerFinancing.history': 'Financing History',
+    'moduleHub.menus.partnerPayment.partner': 'Partner',
+    'moduleHub.menus.partnerPayment.amount': 'Amount',
+    'moduleHub.menus.partnerPayment.date': 'Date',
+    'moduleHub.menus.partnerPayment.method': 'Payment Method',
+    'moduleHub.menus.partnerPayment.notes': 'Notes',
+    'moduleHub.menus.partnerPayment.history': 'Payment History',
+
+    // ===== Payment Methods & Equity =====
+    'paymentMethod.cash': 'Cash',
+    'paymentMethod.bankTransfer': 'Bank Transfer',
+    'paymentMethod.check': 'Check',
+    'equityReport.totalAssets': 'Total Assets',
+    'equityReport.totalLiabilities': 'Total Liabilities',
+    'equityReport.totalEquity': 'Total Equity',
+    'equityReport.partnerCapital': 'Partner Capital',
+    'equityReport.retainedEarnings': 'Retained Earnings',
+    'equityReport.breakdown': 'Equity Breakdown',
+    'equityReport.treasuryBalance': 'Treasury Balance',
+    'equityReport.bankBalance': 'Bank Balance',
+    'equityReport.inventoryValue': 'Inventory Value',
+    'currency': 'EGP',
+    'common.select': 'Select',
+    'common.saving': 'Saving...',
+
+    // ===== Common =====
     'common.save': 'Save',
     'common.cancel': 'Cancel',
     'common.delete': 'Delete',
@@ -274,10 +383,20 @@ export const translations = {
     'common.error': 'An error occurred',
     'common.warning': 'Warning',
     'common.info': 'Info',
-    
-    // Login
+    'common.actions': 'Actions',
+    'common.status': 'Status',
+    'common.date': 'Date',
+    'common.amount': 'Amount',
+    'common.name': 'Name',
+    'common.code': 'Code',
+    'common.notes': 'Notes',
+    'common.createdBy': 'Created By',
+    'common.createdAt': 'Created At',
+    'common.all': 'All',
+
+    // ===== Login =====
     'login.heading': 'Login',
-    'login.subheading': 'Welcome to Warehouse Management System',
+    'login.subheading': 'Welcome to Care Med System',
     'login.username': 'Username',
     'login.password': 'Password',
     'login.submit': 'Login',
@@ -286,6 +405,62 @@ export const translations = {
     'login.errBadCreds': 'Invalid username or password',
     'login.errServer': 'Server error: {code}',
     'login.errUnknown': 'Unknown error occurred',
-    'login.brandDesc': 'Integrated system for warehouse, sales, purchases, and treasury management',
+    'login.brandDesc': 'Integrated system for warehouse, sales, purchases, treasury and custody management',
+
+    // ===== Reports =====
+    'reports.title': 'Reports',
+    'reports.movements': 'Stock Movements',
+    'reports.stock': 'Stock Balance',
+    'reports.card': 'Item Card',
+    'reports.print': 'Print Report',
+    'reports.showZeroStock': 'Show Zero Stock Items',
+    'reports.hideZeroStock': 'Hide Zero Stock',
+    'reports.fromDate': 'From Date',
+    'reports.toDate': 'To Date',
+    'reports.warehouse': 'Warehouse',
+    'reports.movementType': 'Movement Type',
+    'reports.itemCode': 'Item Code',
+    'reports.itemName': 'Item Name',
+    'reports.quantity': 'Quantity',
+    'reports.unit': 'Unit',
+    'reports.unitCost': 'Unit Cost',
+    'reports.totalValue': 'Total Value',
+    'reports.active': 'Active',
+    'reports.inactive': 'Inactive',
+    'reports.in': 'In',
+    'reports.out': 'Out',
+
+    // ===== Status =====
+    'status.active': 'Active',
+    'status.inactive': 'Inactive',
+    'status.pending': 'Pending',
+    'status.approved': 'Approved',
+    'status.rejected': 'Rejected',
+    'status.draft': 'Draft',
+    'status.completed': 'Completed',
+    'status.cancelled': 'Cancelled',
+
+    // ===== Currency =====
+    'currency.usd': 'USD',
+    'currency.eur': 'EUR',
+    'currency.sar': 'SAR',
   }
+};
+
+// ============================================================
+// 2. دالة الترجمة (تستخدم translations المصدرة أعلاه)
+// ============================================================
+export const translate = (lang, key, params = {}) => {
+  // لو المفتاح مش موجود في اللغة المطلوبة، جرب الإنجليزي، لو مش موجود ارجع المفتاح نفسه
+  const value = translations[lang]?.[key] ?? translations['en']?.[key] ?? key;
+
+  // لو مفيش parameters، ارجع النص مباشرة
+  if (!params || Object.keys(params).length === 0) {
+    return value;
+  }
+
+  // استبدال المتغيرات في النص (مثل {code} → 500)
+  return Object.keys(params).reduce((text, paramKey) => {
+    return text.replace(new RegExp(`{${paramKey}}`, 'g'), params[paramKey]);
+  }, value);
 };
