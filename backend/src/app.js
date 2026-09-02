@@ -56,6 +56,10 @@ const categoriesRouter = require('./routes/categories');
 const unitsRouter = require('./routes/units');
 const shipmentsRoutes = require('./routes/shipments');
 const settingsRoutes = require('./routes/settings');
+const partnerFinancingRoutes = require('./routes/partnerFinancing');
+const partnerPaymentRoutes = require('./routes/partnerPayments');
+const equityReportRoutes = require('./routes/equityReport');
+
 
 
 // Routes جديدة للمبيعات
@@ -111,6 +115,9 @@ app.use('/api/categories', categoriesRouter);
 app.use('/api/units', unitsRouter);
 app.use('/api/shipments', shipmentsRoutes);  // ✅ صح
 app.use('/api/settings', settingsRoutes);
+app.use('/api/partner-financing', partnerFinancingRoutes);
+app.use('/api/partner-payments', partnerPaymentRoutes);
+app.use('/api/equity-report', equityReportRoutes);
 
 // API Routes جديدة للمبيعات
 app.use('/api/tax-settings', taxSettingsRoutes);
