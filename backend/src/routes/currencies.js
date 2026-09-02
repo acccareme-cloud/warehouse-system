@@ -167,12 +167,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     // لو تغير معامل التحويل، تسجيل في التاريخ
     if (exchange_rate !== undefined && exchange_rate !== oldRate) {
-      await client.query(`
-        INSERT INTO exchange_rate_history (currency_id, exchange_rate, effective_date, notes, created_by)
-        VALUES ($1, $2, CURRENT_DATE, 'تعديل معامل التحويل من ' || $3 || ' إلى ' || $2, $4)
-      `, [id, parseFloat(exchange_rate), oldRate, req.user.id]);
-    }
-
+  const historyNote = `تعديل معامل التحويل من ${oldRate} إلى ${exchange_rate}`;
+  await client.query(`
+    INSERT INTO exchange_rate_history (currency_id, exchange_rate, effective_date, notes, created_by)
+    VALUES ($1, $2, CURRENT_DATE, $3, $4)
+  `, [id, parseFloat(exchange_rate), historyNote, req.user.id]);
+}
     await client.query('COMMIT');
     res.json(result.rows[0]);
   } catch (error) {

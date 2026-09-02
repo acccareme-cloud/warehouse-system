@@ -52,6 +52,12 @@ function Reports() {
     from_date: getFirstDayOfMonth(),
     to_date: getLastDayOfMonth()
   });
+   const [movementFilter, setMovementFilter] = useState({
+    warehouse_id: '',
+    movement_type: '',
+    from_date: getFirstDayOfMonth(),
+    to_date: getLastDayOfMonth()
+  });
 
   const printRef = useRef();
   const movementsPrintRef = useRef();
@@ -82,9 +88,14 @@ function Reports() {
     }
   };
 
-  const fetchMovements = async () => {
+  const fetchMovements = async (filters = movementFilter) => {
     try {
-      const response = await api.get('/movements');
+      const params = new URLSearchParams();
+      if (filters.warehouse_id) params.append('warehouse_id', filters.warehouse_id);
+      if (filters.movement_type) params.append('movement_type', filters.movement_type);
+      if (filters.from_date) params.append('from_date', filters.from_date);
+      if (filters.to_date) params.append('to_date', filters.to_date);
+      const response = await api.get(`/movements?${params.toString()}`);
       setMovements(response.data);
     } catch (err) {
       console.error('خطأ في تحميل الحركات');
@@ -561,6 +572,46 @@ function Reports() {
               style={printButtonStyle}
             >
               🖨️ طباعة التقرير
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px', alignItems: 'flex-end' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: subTextColor, marginBottom: '4px' }}>من تاريخ</label>
+              <input type="date" value={movementFilter.from_date}
+                onChange={e => setMovementFilter({ ...movementFilter, from_date: e.target.value })}
+                style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${borderColor}` }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: subTextColor, marginBottom: '4px' }}>إلى تاريخ</label>
+              <input type="date" value={movementFilter.to_date}
+                onChange={e => setMovementFilter({ ...movementFilter, to_date: e.target.value })}
+                style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${borderColor}` }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: subTextColor, marginBottom: '4px' }}>المخزن</label>
+              <select value={movementFilter.warehouse_id}
+                onChange={e => setMovementFilter({ ...movementFilter, warehouse_id: e.target.value })}
+                style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${borderColor}` }}>
+                <option value="">الكل</option>
+                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', color: subTextColor, marginBottom: '4px' }}>نوع الحركة</label>
+              <select value={movementFilter.movement_type}
+                onChange={e => setMovementFilter({ ...movementFilter, movement_type: e.target.value })}
+                style={{ padding: '8px', borderRadius: '6px', border: `1px solid ${borderColor}` }}>
+                <option value="">الكل</option>
+                <option value="in">اضافة</option>
+                <option value="out">صرف</option>
+              </select>
+            </div>
+            <button onClick={() => fetchMovements()} style={{ padding: '9px 20px', background: '#0d9488', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+              🔍 بحث
+            </button>
+            <button onClick={() => { const cleared = { warehouse_id: '', movement_type: '', from_date: '', to_date: '' }; setMovementFilter(cleared); fetchMovements(cleared); }}
+              style={{ padding: '9px 20px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+              إلغاء الفلاتر
             </button>
           </div>
           <div ref={movementsPrintRef}>
