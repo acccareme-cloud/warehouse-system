@@ -1,3 +1,4 @@
+// frontend/src/context/LanguageContext.jsx
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { translate } from '../i18n/translations';
 
@@ -14,7 +15,6 @@ export function LanguageProvider({ children }) {
 
   const setLang = useCallback((l) => setLangState(l === 'en' ? 'en' : 'ar'), []);
   const toggleLang = useCallback(() => setLangState((prev) => (prev === 'ar' ? 'en' : 'ar')), []);
-
   const t = useCallback((key, params) => translate(lang, key, params), [lang]);
   const isRtl = lang === 'ar';
 
