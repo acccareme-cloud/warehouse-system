@@ -205,8 +205,7 @@ function WarehouseIssues() {
       groups[key].lines.push(it);
     });
     return Object.values(groups);
-  };
-  const openIssueModal = async (inv, group) => {
+  };const openIssueModal = async (inv, group) => {
   const lineSerials = {};
   const lineWarehouses = {};
   
