@@ -117,6 +117,7 @@ function SalesInvoices() {
       warehouse_id: '', quantity: parseFloat(l.quantity) || 1,
       unit_price: parseFloat(l.unit_price) || 0, dq_id: null, has_serial: false
     })));
+    setTaxControls(activeTab === 'price_quote' ? { has_vat: false, has_discount_tax: false, is_taxable: false } : { has_vat: true, has_discount_tax: true, is_taxable: true });
     fetchNextNumber();
     setShowOrderSelector(false);
     setShowForm(true);
@@ -159,6 +160,7 @@ function SalesInvoices() {
       warehouse_type: activeTab === 'price_quote' ? 'company' : 'tax'
     });
     setFormItems(lines);
+    setTaxControls(activeTab === 'price_quote' ? { has_vat: false, has_discount_tax: false, is_taxable: false } : { has_vat: true, has_discount_tax: true, is_taxable: true });
     fetchNextNumber();
     setShowDqSelector(false);
     setShowForm(true);

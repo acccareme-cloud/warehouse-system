@@ -140,9 +140,9 @@ router.get('/currencies', verifyToken, async (req, res) => {
 // FIX: inTypesBank منفصل عن inTypes (مش بيحتوي treasury_funding)
 router.get('/balance', verifyToken, async (req, res) => {
   try {
-    const inTypes = `('customer_payment','advance_return','custody_return','treasury_funding','other_income')`;
-    const inTypesBank = `('customer_payment','advance_return','custody_return','other_income')`;
-    const outTypes = `('customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement')`;
+    const inTypes = `('customer_payment','advance_return','custody_return','treasury_funding','partner_financing','other_income')`;
+    const inTypesBank = `('customer_payment','advance_return','custody_return','partner_financing','other_income')`;
+    const outTypes = `('customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment')`;
     const result = await pool.query(
       `SELECT
         COALESCE(SUM(CASE WHEN payment_method='cash' AND transaction_type IN ${inTypes} AND currency='EGP' THEN amount_local ELSE 0 END),0)+
@@ -288,7 +288,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
 // FIX: custody_settlement أضيف لـ OUT_TYPES
-const OUT_TYPES = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement'];
+const OUT_TYPES = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment'];
 // FIX: canSkipWorkflow بيدعم skip_workflow parameter
 const canSkipWorkflow = (role, skipWorkflow=false) => ['finance','admin'].includes(role) && skipWorkflow;
 
@@ -323,9 +323,9 @@ async function generateTransactionNumber(client, transactionType) {
 
 // FIX: checkBalance بيستخدم inTypesBank منفصل + treasury_funding في cash in + custody_settlement في out
 async function checkBalance(client, paymentMethod, amount, currency, force=false, transactionType=null, transferFrom=null, transferFromCurrency=null) {
-  const inTypesCash = `('customer_payment','advance_return','custody_return','treasury_funding','other_income')`;
-  const inTypesBank = `('customer_payment','advance_return','custody_return','other_income')`;
-  const outTypes = `('customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement')`;
+  const inTypesCash = `('customer_payment','advance_return','custody_return','treasury_funding','partner_financing','other_income')`;
+  const inTypesBank = `('customer_payment','advance_return','custody_return','partner_financing','other_income')`;
+  const outTypes = `('customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment')`;
   let targetMethod = paymentMethod;
   let targetCurrency = currency;
   if (transactionType === 'bank_transfer' && transferFrom) {
@@ -653,8 +653,8 @@ router.get('/report/statement', verifyToken, async (req, res) => {
       if (payment_method) { openingWhere += ` AND payment_method = $${opIdx}`; openingParams.push(payment_method); opIdx++; }
       // FIX: custody_settlement أضيف في outTypes
       const openingResult = await pool.query(
-        `SELECT COALESCE(SUM(CASE WHEN transaction_type IN ('customer_payment','advance_return','custody_return','treasury_funding','other_income') THEN amount_local WHEN transaction_type='bank_transfer' AND transfer_to IN ('cash','bank') THEN amount_local ELSE 0 END),0)-
-         COALESCE(SUM(CASE WHEN transaction_type IN ('customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement') THEN amount_local WHEN transaction_type='bank_transfer' AND transfer_from IN ('cash','bank') THEN amount_local ELSE 0 END),0) as opening
+        `SELECT COALESCE(SUM(CASE WHEN transaction_type IN ('customer_payment','advance_return','custody_return','treasury_funding','partner_financing','other_income') THEN amount_local WHEN transaction_type='bank_transfer' AND transfer_to IN ('cash','bank') THEN amount_local ELSE 0 END),0)-
+         COALESCE(SUM(CASE WHEN transaction_type IN ('customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment') THEN amount_local WHEN transaction_type='bank_transfer' AND transfer_from IN ('cash','bank') THEN amount_local ELSE 0 END),0) as opening
          FROM treasury ${openingWhere}`, openingParams);
       openingBalance = parseFloat(openingResult.rows[0].opening) || 0;
     }
@@ -664,8 +664,8 @@ router.get('/report/statement', verifyToken, async (req, res) => {
        ${whereClause} ORDER BY t.transaction_date ASC, t.id ASC`, params);
     let runningBalance = openingBalance;
     // FIX: custody_settlement أضيف في outTypes
-    const inTypes = ['customer_payment','advance_return','custody_return','treasury_funding','other_income'];
-    const outTypes = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement'];
+    const inTypes = ['customer_payment','advance_return','custody_return','treasury_funding','partner_financing','other_income'];
+    const outTypes = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment'];
     const rows = result.rows.map(row => {
       const amountLocal = parseFloat(row.amount_local) || 0;
       let debit = 0, credit = 0;
@@ -694,7 +694,7 @@ router.get('/export/csv', verifyToken, async (req, res) => {
        FROM treasury t LEFT JOIN customers c ON t.customer_id=c.id LEFT JOIN suppliers s ON t.supplier_id=s.id LEFT JOIN users cu ON t.created_by=cu.id
        WHERE 1=1 ${whereClause} ORDER BY t.created_at DESC`, params);
     let csv = '\uFEFFرقم السند,التاريخ,النوع,الحالة,المبلغ,العملة,المبلغ بالجنيه,طريقة الدفع,البيان,العميل,المورد,الجهة,أنشئ بواسطة,تاريخ الإنشاء\n';
-    const typeMap = { 'customer_payment':'سداد عميل','customer_refund':'رد عميل','advance_return':'رد سلفة','custody_return':'رد عهدة','treasury_funding':'تمويل خزينة','other_income':'إيراد آخر','expense':'مصروف','other_outcome':'صرف آخر','custody_payment':'عهدة موظف','custody_settlement':'تسوية عهدة','salary_advance':'سلفة راتب','supplier_payment':'دفع مورد','bank_transfer':'تحويل بنكي','non_employee_advance':'سلف غير عاملين' };
+    const typeMap = { 'customer_payment':'سداد عميل','customer_refund':'رد عميل','advance_return':'رد سلفة','custody_return':'رد عهدة','treasury_funding':'تمويل خزينة','partner_financing':'تمويل من شريك','partner_payment':'صرف لشريك','other_income':'إيراد آخر','expense':'مصروف','other_outcome':'صرف آخر','custody_payment':'عهدة موظف','custody_settlement':'تسوية عهدة','salary_advance':'سلفة راتب','supplier_payment':'دفع مورد','bank_transfer':'تحويل بنكي','non_employee_advance':'سلف غير عاملين' };
     const statusMap = { 'pending_review':'إعداد','pending_approval':'انتظار مراجعة','approved':'معتمد','active':'تم التنفيذ','rejected_by_review':'مرفوض مراجعة','rejected_by_finance':'مرفوض مالية','return_requested':'مشكلة بعد الاعتماد','cancelled':'ملغي' };
     result.rows.forEach(row => {
       const party = row.employee_name || row.party_name || row.customer_name || row.supplier_name || '';
@@ -937,7 +937,7 @@ router.put('/:id', verifyToken, requireRole('entry_accountant','finance','admin'
     const rate = parseFloat(exchange_rate) || parseFloat(oldRecord.exchange_rate) || 1;
     const amountLocal = numericAmount * rate;
     // FIX: custody_settlement أضيف في outTypes
-    const outTypes = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement'];
+    const outTypes = ['customer_refund','expense','other_outcome','custody_payment','salary_advance','supplier_payment','non_employee_advance','custody_settlement','partner_payment'];
     if (oldRecord.status === 'active' && outTypes.includes(transaction_type)) {
       const oldAmount = parseFloat(oldRecord.amount) || 0;
       const amountDiff = numericAmount - oldAmount;

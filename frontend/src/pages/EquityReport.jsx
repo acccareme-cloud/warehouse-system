@@ -26,7 +26,7 @@ function EquityReport() {
 
   const fetchReport = async () => {
     try {
-      const res = await api.get('/treasury/equity-report');
+      const res = await api.get('/equity-report');
       setReport(res.data);
     } catch (err) {
       console.error('Error fetching equity report:', err);

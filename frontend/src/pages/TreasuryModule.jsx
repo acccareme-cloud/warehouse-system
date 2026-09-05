@@ -17,7 +17,10 @@ function TreasuryModule() {
     { title: '📊 مراكز التكلفة', desc: 'تكويد وادارة المراكز', color: '#fd7e14', path: '/cost-centers' },
     { title: '📝 تكويد المصاريف', desc: 'مصاريف اساسية وفرعية', color: '#92400e', path: '/expense-categories' },
     { title: '📈 تقرير المصاريف', desc: 'حسب مراكز التكلفة', color: '#1565c0', path: '/expense-report' },
-    { title: '🤝 الشريك', desc: 'تمويل وصرف للشركاء', color: '#EC4899', path: '/partner-management' },
+    { title: '🤝 الشريك', desc: 'بيانات الشركاء', color: '#EC4899', path: '/partner-management' },
+    { title: '💰 تمويل من شريك', desc: 'تسجيل تمويل جديد من شريك', color: '#06B6D4', path: '/partner-financing' },
+    { title: '💵 صرف لشريك', desc: 'تسجيل صرف/سحب لشريك', color: '#DB2777', path: '/partner-payment' },
+    { title: '📑 تقرير حقوق الملكية', desc: 'الأصول والالتزامات وحقوق الملكية', color: '#7C3AED', path: '/equity-report' },
   ];
 
   return (

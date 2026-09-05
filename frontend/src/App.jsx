@@ -47,6 +47,9 @@ import CostCenters from './pages/CostCenters';
 import ExpenseCategories from './pages/ExpenseCategories';
 import ExpenseReport from './pages/ExpenseReport';
 import PartnerManagement from './pages/PartnerManagement';
+import PartnerFinancing from './pages/PartnerFinancing';
+import PartnerPayment from './pages/PartnerPayment';
+import EquityReport from './pages/EquityReport';
 
 // Warehouse Module
 import WarehouseModule from './pages/WarehouseModule';
@@ -128,6 +131,9 @@ function App() {
           <Route path="/bank-accounts" element={<BankAccounts />} />
           <Route path="/expense-report" element={<ExpenseReport />} />
           <Route path="/partner-management" element={<PartnerManagement />} />
+          <Route path="/partner-financing" element={<PartnerFinancing />} />
+          <Route path="/partner-payment" element={<PartnerPayment />} />
+          <Route path="/equity-report" element={<EquityReport />} />
 
           {/* Warehouse Module */}
           <Route path="/warehouse-module" element={<WarehouseModule />} />
