@@ -35,7 +35,7 @@ router.get('/available-serials/:itemId', verifyToken, async (req, res) => {
     if (include_reserved === '1' || include_reserved === 'true') {
       const result = await pool.query(
         `SELECT serial_number, status FROM item_serials 
-         WHERE item_id = $1 AND warehouse_id = $2 AND status IN ('available', 'reserved')
+         WHERE item_id = $1 AND warehouse_id = $2 AND status IN ('available', 'reserved') 
          ORDER BY status, serial_number`,
         [req.params.itemId, warehouse_id]
       );
@@ -43,7 +43,7 @@ router.get('/available-serials/:itemId', verifyToken, async (req, res) => {
     }
     const result = await pool.query(
       `SELECT serial_number FROM item_serials 
-       WHERE item_id = $1 AND warehouse_id = $2 AND status = 'available'
+       WHERE item_id = $1 AND warehouse_id = $2 AND status = 'available' 
        ORDER BY serial_number`,
       [req.params.itemId, warehouse_id]
     );
@@ -52,7 +52,6 @@ router.get('/available-serials/:itemId', verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
-
 // Create warehouse issue voucher
 router.post('/', verifyToken, requireRole('storekeeper', 'admin'), async (req, res) => {
   const {
@@ -157,14 +156,16 @@ router.get('/', verifyToken, async (req, res) => {
     const filterClause = source === 'invoice'
       ? `WHERE wiv.reference_type = 'sales_invoice'`
       : `WHERE wiv.reference_type IS NULL OR wiv.reference_type != 'sales_invoice'`;
+    
     const result = await pool.query(
-      `SELECT wiv.*, c.name as customer_name, w.name as warehouse_name,
-        u.full_name as created_by_name
-       FROM warehouse_issue_vouchers wiv
-       LEFT JOIN customers c ON wiv.customer_id = c.id
-       LEFT JOIN warehouses w ON wiv.warehouse_id = w.id
-       LEFT JOIN users u ON wiv.created_by = u.id
-       ${filterClause}
+      `SELECT wiv.*, c.name as customer_name, w.name as warehouse_name, 
+              u.full_name as created_by_name,
+              w.manager_name as warehouse_manager_name
+       FROM warehouse_issue_vouchers wiv 
+       LEFT JOIN customers c ON wiv.customer_id = c.id 
+       LEFT JOIN warehouses w ON wiv.warehouse_id = w.id 
+       LEFT JOIN users u ON wiv.created_by = u.id 
+       ${filterClause} 
        ORDER BY wiv.created_at DESC`
     );
     res.json(result.rows);

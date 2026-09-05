@@ -37,8 +37,9 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
     return () => { cancelled = true; };
   }, [itemId, warehouseId]);
 
-  const selected = Array.isArray(value) ? value : [];
-
+  const selected = Array.isArray(value) && value.length > 0 
+  ? value 
+  : stockSerials.filter(s => s.status === 'reserved').map(s => s.serial_number);
   // دمج: سريالات الرصيد + أي سريال مختار حالياً (مثلاً محجوز لهذا المستند)
   const knownSet = new Set(stockSerials.map(s => s.serial_number));
   const extraSelected = selected.filter(s => !knownSet.has(s));

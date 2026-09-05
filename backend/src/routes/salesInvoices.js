@@ -1101,14 +1101,50 @@ router.put('/:id/warehouse-approve', verifyToken, requireRole('storekeeper', 'ad
       allLines = [{ id: null, item_id: invoice.item_id, warehouse_id: invoice.warehouse_id, quantity: invoice.quantity, unit_price: invoice.unit_price, serial_numbers: invoice.serial_numbers }];
     }
 
-    // ═══ كل مخزن يصرف أسطره بس: فلترة بالمخزن المطلوب ═══
+    // ═══ لو الشاشة بعتت مخزن مختلف لكل سطر (صنفين في نفس الفاتورة على مخزنين مختلفين،
+    // أو صنف من غير مخزن محدد واختاره أمين المخزن يدويًا) — نطبّق التحديد ده فوق مخزن السطر الأصلي ═══
+    const lineWarehouseOverrides = {};
+    if (Array.isArray(bodyLineSerials)) {
+      bodyLineSerials.forEach(ls => {
+        if (ls && ls.line_id != null && ls.warehouse_id) {
+          lineWarehouseOverrides[String(ls.line_id)] = ls.warehouse_id;
+        }
+      });
+    }
+    allLines = allLines.map(l => {
+      const override = l.id != null ? lineWarehouseOverrides[String(l.id)] : undefined;
+      return override ? { ...l, warehouse_id: override } : l;
+    });
+
+    // ═══ كل مخزن يصرف أسطره بس ═══
     let linesToProcess = allLines.filter(l => !l.issued);
-    if (bodyWarehouseId) {
+
+    // لو الطلب حدد أسطر بعينها (line_serials فيها line_id)، نصرف الأسطر دي بس — كل واحد بمخزنه الخاص
+    const explicitLineIds = Array.isArray(bodyLineSerials)
+      ? bodyLineSerials.filter(ls => ls && ls.line_id != null).map(ls => String(ls.line_id))
+      : [];
+
+    if (explicitLineIds.length > 0) {
+      linesToProcess = linesToProcess.filter(l => explicitLineIds.includes(String(l.id)));
+      if (linesToProcess.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'لا توجد أصناف متبقية لصرفها — ربما تم صرفها بالفعل' });
+      }
+    } else if (bodyWarehouseId) {
+      // توافقًا مع الاستدعاءات القديمة اللي بتبعت مخزن واحد للمجموعة كلها
       linesToProcess = linesToProcess.filter(l => String(l.warehouse_id) === String(bodyWarehouseId));
       if (linesToProcess.length === 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ message: 'لا توجد أصناف متبقية لهذا المخزن في الفاتورة — ربما تم صرفها بالفعل' });
       }
+    }
+
+    // ═══ لازم كل سطر هيتصرف يكون ليه مخزن محدد، وإلا الصرف مينفعش يتم (بدل ما يتجاهل السطر بصمت) ═══
+    const linesMissingWarehouse = linesToProcess.filter(l => !l.warehouse_id);
+    if (linesMissingWarehouse.length > 0) {
+      await client.query('ROLLBACK');
+      const names = linesMissingWarehouse.map(l => l.item_name || l.item_id).join('، ');
+      return res.status(400).json({ message: `لازم تحدد مخزن للأصناف دي قبل الصرف: ${names}` });
     }
 
     // خريطة السريالات لكل سطر: [{line_id, serial_numbers}]

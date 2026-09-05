@@ -17,7 +17,7 @@ function WarehouseIssues() {
   const [activeTab, setActiveTab] = useState('pending');
 
   // 📦 مودال الصرف لكل مخزن
-  const [issueModal, setIssueModal] = useState({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' });
+  const [issueModal, setIssueModal] = useState({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, lineWarehouses: {}, error: '' });
 
   const [formData, setFormData] = useState({
     voucher_number: '',
@@ -206,43 +206,123 @@ function WarehouseIssues() {
     });
     return Object.values(groups);
   };
-
-  const openIssueModal = (inv, group) => {
-    const lineSerials = {};
-    group.lines.forEach(l => {
-      if (l.has_serial) {
-        const existing = Array.isArray(l.serial_numbers) ? l.serial_numbers : [];
-        lineSerials[l.id] = existing.length === parseInt(l.quantity) ? existing : [];
+  const openIssueModal = async (inv, group) => {
+  const lineSerials = {};
+  const lineWarehouses = {};
+  
+  for (let i = 0; i < group.lines.length; i++) {
+    const l = group.lines[i];
+    const lineKey = `line_${i}`; // مفتاح ثابت
+    l._lineKey = lineKey;
+    
+    lineWarehouses[lineKey] = l.warehouse_id || group.warehouse_id || '';
+    
+    if (l.has_serial && lineWarehouses[lineKey]) {
+      try {
+        const res = await api.get(`/warehouse-issues/available-serials/${l.item_id}`, {
+          params: { 
+            warehouse_id: lineWarehouses[lineKey], 
+            include_reserved: 1
+          }
+        });
+        
+        const allSerials = res.data || [];
+        // نجيب السريالات المحجوزة فقط
+        const reservedSerials = allSerials
+          .filter(s => s.status === 'reserved')
+          .map(s => s.serial_number);
+        
+        lineSerials[lineKey] = reservedSerials;
+        
+        // 🔍 Debug log
+        console.log(`Line ${lineKey}:`, {
+          item: l.item_name,
+          reservedSerials,
+          allSerials
+        });
+      } catch (err) {
+        console.error(`Error fetching serials for line ${lineKey}:`, err);
+        lineSerials[lineKey] = [];
       }
+    } else {
+      lineSerials[lineKey] = [];
+    }
+  }
+  
+  setIssueModal({ 
+    open: true, 
+    invoice: inv, 
+    warehouseId: group.warehouse_id, 
+    warehouseName: group.warehouse_name, 
+    lines: group.lines, 
+    lineSerials, 
+    lineWarehouses, 
+    error: '' 
+  });
+};
+    const confirmIssue = async () => {
+  const { invoice, lines, lineSerials, lineWarehouses } = issueModal;
+  
+  // 🔍 Debug logs
+  console.log('lines:', lines.map(l => ({ 
+    item: l.item_name, 
+    lineKey: l._lineKey,
+    quantity: l.quantity 
+  })));
+  console.log('lineSerials:', lineSerials);
+  console.log('lineWarehouses:', lineWarehouses);
+  
+  for (const l of lines) {
+    const lineKey = l._lineKey;
+    
+    if (!lineWarehouses[lineKey]) {
+      setIssueModal(p => ({ ...p, error: `الصنف "${l.item_name}" لازم تحدد له مخزن قبل الصرف` }));
+      return;
+    }
+    
+    if (l.has_serial) {
+      const sel = lineSerials[lineKey] || [];
+      console.log(`Checking ${l.item_name}:`, { 
+        quantity: parseInt(l.quantity), 
+        selected: sel.length,
+        serials: sel
+      });
+      
+      if (sel.length !== parseInt(l.quantity)) {
+        setIssueModal(p => ({ 
+          ...p, 
+          error: `الصنف "${l.item_name}" محتاج ${l.quantity} سريال — اخترت ${sel.length}` 
+        }));
+        return;
+      }
+    }
+  }
+  
+  try {
+    const line_serials = lines.map(l => {
+      const lineKey = l._lineKey;
+      return {
+        line_id: l.id || null,
+        item_id: l.item_id,
+        warehouse_id: lineWarehouses[lineKey],
+        serial_numbers: l.has_serial ? (lineSerials[lineKey] || []) : undefined
+      };
     });
-    setIssueModal({ open: true, invoice: inv, warehouseId: group.warehouse_id, warehouseName: group.warehouse_name, lines: group.lines, lineSerials, error: '' });
-  };
-
-  const confirmIssue = async () => {
-    const { invoice, warehouseId, lines, lineSerials } = issueModal;
-    for (const l of lines) {
-      if (l.has_serial) {
-        const sel = lineSerials[l.id] || [];
-        if (sel.length !== parseInt(l.quantity)) {
-          setIssueModal(p => ({ ...p, error: `الصنف "${l.item_name}" محتاج ${l.quantity} سريال — اخترت ${sel.length}` }));
-          return;
-        }
-      }
-    }
-    try {
-      const line_serials = lines.filter(l => l.has_serial).map(l => ({ line_id: l.id, serial_numbers: lineSerials[l.id] || [] }));
-      const r = await api.put(`/sales-invoices/${invoice.id}/warehouse-approve`, { warehouse_id: warehouseId, line_serials });
-      const remaining = r.data?.remaining_lines || 0;
-      setMessage(remaining > 0
-        ? `✅ تم صرف أصناف ${issueModal.warehouseName} — إذن الصرف: ${r.data?.voucher_number || ''} (متبقي ${remaining} صنف لمخازن أخرى)`
-        : `✅ تم صرف كل الأصناف — إذن الصرف: ${r.data?.voucher_number || ''}`);
-      setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' });
-      fetchPendingInvoices();
-      fetchApprovedInvoices();
-    } catch (err) {
-      setIssueModal(p => ({ ...p, error: err.response?.data?.message || 'حدث خطأ أثناء الصرف' }));
-    }
-  };
+    
+    console.log('Sending to backend:', { line_serials });
+    
+    const r = await api.put(`/sales-invoices/${invoice.id}/warehouse-approve`, { line_serials });
+    const remaining = r.data?.remaining_lines || 0;
+    setMessage(remaining > 0
+      ? `✅ تم صرف أصناف ${issueModal.warehouseName} — إذن الصرف: ${r.data?.voucher_number || ''} (متبقي ${remaining} صنف لمخازن أخرى)`
+      : `✅ تم صرف كل الأصناف — إذن الصرف: ${r.data?.voucher_number || ''}`);
+    setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, lineWarehouses: {}, error: '' });
+    fetchPendingInvoices();
+    fetchApprovedInvoices();
+  } catch (err) {
+    setIssueModal(p => ({ ...p, error: err.response?.data?.message || 'حدث خطأ أثناء الصرف' }));
+  }
+};
 
   // 🖨️ طباعة إذن صرف مخزن - أصناف متعددة + سريالات
   const handlePrintWarehouseIssue = (invoice) => {
@@ -342,7 +422,10 @@ function WarehouseIssues() {
         </div>
 
         <div class="footer">
-          <div class="signature"><div class="signature-line">توقيع أمين المخزن</div></div>
+          <div class="signature">
+            <div style="font-weight:600;">${invoice.warehouse_approved_by_name || ''}</div>
+            <div class="signature-line">توقيع أمين المخزن</div>
+          </div>
           <div class="signature"><div class="signature-line">توقيع المستلم</div></div>
           <div class="signature"><div class="signature-line">توقيع المدير</div></div>
         </div>
@@ -450,7 +533,10 @@ function WarehouseIssues() {
         </div>
 
         <div class="footer">
-          <div class="signature"><div class="signature-line">توقيع أمين المخزن</div></div>
+          <div class="signature">
+            <div style="font-weight:600;">${voucher.created_by_name || ''}</div>
+            <div class="signature-line">توقيع أمين المخزن</div>
+          </div>
           <div class="signature"><div class="signature-line">توقيع المستلم</div></div>
           <div class="signature"><div class="signature-line">توقيع المدير</div></div>
         </div>
@@ -713,13 +799,14 @@ function WarehouseIssues() {
                 <th style={thStyle}>العميل</th>
                 <th style={thStyle}>الأصناف المصروفة</th>
                 <th style={thStyle}>السريالات</th>
+                <th style={thStyle}>أمين المخزن</th>
                 <th style={thStyle}>الحالة</th>
                 <th style={thStyle}>إجراء</th>
               </tr>
             </thead>
             <tbody>
               {approvedInvoices.length === 0 ? (
-                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد فواتير تم صرفها</td></tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد فواتير تم صرفها</td></tr>
               ) : (
                 approvedInvoices.map(inv => {
                   const invItems = (Array.isArray(inv.items) && inv.items.length > 0) ? inv.items : [{ item_name: inv.item_name, item_code: inv.item_code, quantity: inv.quantity, warehouse_name: inv.warehouse_name, serial_numbers: inv.serial_numbers }];
@@ -743,6 +830,7 @@ function WarehouseIssues() {
                           </div>
                         ) : '-'}
                       </td>
+                      <td style={tdStyle}>{inv.warehouse_approved_by_name || '-'}</td>
                       <td style={tdStyle}>
                         <span style={{ color: '#16a34a', fontWeight: 'bold', padding: '4px 12px', borderRadius: '12px', backgroundColor: '#16a34a20' }}>✓ تم الصرف</span>
                       </td>
@@ -773,13 +861,14 @@ function WarehouseIssues() {
                 <th style={thStyle}>العميل</th>
                 <th style={thStyle}>المخزن</th>
                 <th style={thStyle}>عدد الأصناف</th>
+                <th style={thStyle}>أمين المخزن</th>
                 <th style={thStyle}>الحالة</th>
                 <th style={thStyle}>إجراء</th>
               </tr>
             </thead>
             <tbody>
               {manualVouchers.length === 0 ? (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد إذون يدوية</td></tr>
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد إذون يدوية</td></tr>
               ) : (
                 manualVouchers.map(v => (
                   <tr key={v.id} style={{ backgroundColor: v.id % 2 === 0 ? '#f8f9fa' : 'white' }}>
@@ -789,6 +878,7 @@ function WarehouseIssues() {
                     <td style={tdStyle}>{v.customer_name || '-'}</td>
                     <td style={tdStyle}>{v.warehouse_name || '-'}</td>
                     <td style={tdStyle}><strong style={{ color: '#dc2626', fontSize: '16px' }}>{v.total_items || 0}</strong></td>
+                    <td style={tdStyle}>{v.warehouse_manager_name || v.created_by_name || '-'}</td>
                     <td style={tdStyle}>
                       <span style={{ color: getStatusColor(v.status), fontWeight: 'bold', padding: '4px 12px', borderRadius: '12px', backgroundColor: getStatusColor(v.status) + '20' }}>
                         {getStatusText(v.status)}
@@ -835,13 +925,14 @@ function WarehouseIssues() {
                 <th style={thStyle}>العميل</th>
                 <th style={thStyle}>المخزن</th>
                 <th style={thStyle}>عدد الأصناف</th>
+                <th style={thStyle}>أمين المخزن</th>
                 <th style={thStyle}>الحالة</th>
                 <th style={thStyle}>إجراء</th>
               </tr>
             </thead>
             <tbody>
               {invoiceVouchers.length === 0 ? (
-                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد إذون تلقائية</td></tr>
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>لا يوجد إذون تلقائية</td></tr>
               ) : (
                 invoiceVouchers.map(v => (
                   <tr key={v.id} style={{ backgroundColor: v.id % 2 === 0 ? '#f8f9fa' : 'white' }}>
@@ -851,6 +942,7 @@ function WarehouseIssues() {
                     <td style={tdStyle}>{v.customer_name || '-'}</td>
                     <td style={tdStyle}>{v.warehouse_name || '-'}</td>
                     <td style={tdStyle}><strong style={{ color: '#7c3aed', fontSize: '16px' }}>{v.total_items || 0}</strong></td>
+                    <td style={tdStyle}>{v.warehouse_manager_name || v.created_by_name || '-'}</td>
                     <td style={tdStyle}>
                       <span style={{ color: getStatusColor(v.status), fontWeight: 'bold', padding: '4px 12px', borderRadius: '12px', backgroundColor: getStatusColor(v.status) + '20' }}>
                         {getStatusText(v.status)}
@@ -879,12 +971,12 @@ function WarehouseIssues() {
       {/* 📦 مودال الصرف — سريالات من الرصيد لكل صنف */}
       {issueModal.open && issueModal.invoice && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-          onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' })}>
+          onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, lineWarehouses: {}, error: '' })}>
           <div style={{ color: '#1e293b', backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '750px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: '#dc2626' }}>📦 صرف من مخزن: {issueModal.warehouseName}</h3>
-              <button onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' })} style={{ padding: '5px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+              <button onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, lineWarehouses: {}, error: '' })} style={{ padding: '5px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
             </div>
 
             <div style={{ color: '#1e293b', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px' }}>
@@ -895,29 +987,51 @@ function WarehouseIssues() {
 
             {issueModal.error && <p style={{ padding: '10px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '6px' }}>{issueModal.error}</p>}
 
-            {issueModal.lines.map((l) => (
-              <div key={l.id || l.item_id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+                        {issueModal.lines.map((l) => {
+              const lineKey = l._lineKey || l.id || l.item_id || 'default';
+              return (
+              <div key={lineKey} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
                   {l.item_name} <span style={{ color: '#2563eb' }}>(الكمية: {l.quantity})</span>
                   {l.has_serial ? <span style={{ color: '#9333ea', fontSize: '12px', marginRight: '8px' }}>🔢 بسريال</span> : <span style={{ color: '#94a3b8', fontSize: '12px', marginRight: '8px' }}>بدون سريال</span>}
                 </div>
+
+                {/* 🏬 اختيار المخزن لكل صنف على حدة */}
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={{ fontSize: '12px', color: '#475569', marginLeft: '6px' }}>المخزن:</label>
+                  <select
+                    value={issueModal.lineWarehouses[lineKey] || ''}
+                    onChange={(e) => setIssueModal(p => ({
+                      ...p,
+                      lineWarehouses: { ...p.lineWarehouses, [lineKey]: e.target.value },
+                      lineSerials: { ...p.lineSerials, [lineKey]: [] }
+                    }))}
+                    style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }}
+                  >
+                    <option value="">— اختر المخزن —</option>
+                    {warehouses.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
+                  </select>
+                  {!issueModal.lineWarehouses[lineKey] && (
+                    <span style={{ color: '#dc2626', fontSize: '12px', marginRight: '8px' }}>⚠️ لازم تحدد المخزن</span>
+                  )}
+                </div>
+
                 {l.has_serial && (
                   <SerialPicker
                     itemId={l.item_id}
-                    warehouseId={issueModal.warehouseId || l.warehouse_id}
+                    warehouseId={issueModal.lineWarehouses[lineKey]}
                     count={l.quantity}
-                    value={issueModal.lineSerials[l.id] || []}
-                    onChange={(arr) => setIssueModal(p => ({ ...p, lineSerials: { ...p.lineSerials, [l.id]: arr } }))}
+                    value={issueModal.lineSerials[lineKey] || []}
+                    onChange={(arr) => setIssueModal(p => ({ ...p, lineSerials: { ...p.lineSerials, [lineKey]: arr } }))}
                   />
                 )}
               </div>
-            ))}
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              );
+            })}            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
               <button onClick={confirmIssue} style={{ padding: '10px 30px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 ✓ تأكيد الصرف
               </button>
-              <button onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, error: '' })} style={{ padding: '10px 30px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+              <button onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, lineWarehouses: {}, error: '' })} style={{ padding: '10px 30px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
                 إلغاء
               </button>
             </div>

@@ -73,21 +73,35 @@ function DeliveryNotes() {
   };
 
   // ===== التعديل =====
-  const openEdit = async (note) => {
-    try {
-      const r = await api.get(`/delivery-notes/${note.id}`);
-      const full = r.data;
-      setEditNote(full);
-      setEditItems(getNoteItems(full).map(it => ({
-        id: it.id, item_id: it.item_id, item_name: it.item_name || '',
+const openEdit = async (note) => {
+  try {
+    const r = await api.get(`/delivery-notes/${note.id}`);
+    const full = r.data;
+    setEditNote(full);
+    setEditItems(getNoteItems(full).map(it => {
+      // التعامل مع السريالات سواء string أو array
+      let serials = [];
+      if (Array.isArray(it.serial_numbers)) {
+        serials = it.serial_numbers;
+      } else if (typeof it.serial_numbers === 'string' && it.serial_numbers.trim() !== '') {
+        serials = it.serial_numbers.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      
+      return {
+        id: it.id, 
+        item_id: it.item_id, 
+        item_name: it.item_name || '',
         has_serial: it.has_serial || false,
         quantity: parseFloat(it.quantity) || 1,
         unit_price: parseFloat(it.unit_price) || 0,
         warehouse_id: it.warehouse_id || '',
-        serial_numbers: Array.isArray(it.serial_numbers) ? it.serial_numbers : []
-      })));
-    } catch (err) { setMessage('❌ خطأ في جلب بيانات الإذن'); }
-  };
+        serial_numbers: serials
+      };
+    }));
+  } catch (err) { 
+    setMessage('❌ خطأ في جلب بيانات الإذن'); 
+  }
+};
 
   const updateEditLine = (idx, field, value) => {
     setEditItems(p => p.map((l, i) => {

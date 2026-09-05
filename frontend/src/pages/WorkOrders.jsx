@@ -127,38 +127,49 @@ function WorkOrders() {
   };
 
   // ===== ✏️ تعديل أمر شغل (أدمن فقط — في أي حالة) =====
-  const openEdit = async (order) => {
-    try {
-      const res = await api.get(`/work-orders/${order.id}`);
-      const full = res.data;
-      setEditOrder(full);
-      setEditForm({
-        work_type: full.work_type || 'installation',
-        description: full.description || '',
-        start_date: full.start_date ? String(full.start_date).slice(0, 10) : '',
-        expected_end_date: full.expected_end_date ? String(full.expected_end_date).slice(0, 10) : '',
-        assigned_to: full.assigned_to || '',
-        notes: full.notes || ''
-      });
-      const srcItems = (Array.isArray(full.items) && full.items.length > 0)
-        ? full.items
-        : [{ item_id: full.item_id, item_name: full.item_name, quantity: full.quantity, warehouse_id: full.warehouse_id, serial_numbers: full.serial_numbers }];
-      setEditItems(srcItems.filter(it => it.item_id).map(it => {
-        const itemMaster = items.find(i => i.id == it.item_id);
-        return {
-          item_id: it.item_id,
-          item_name: it.item_name || itemMaster?.name || '',
-          has_serial: it.has_serial || itemMaster?.has_serial || false,
-          quantity: parseFloat(it.quantity) || 1,
-          unit_price: parseFloat(it.unit_price) || 0,
-          warehouse_id: it.warehouse_id || full.warehouse_id || '',
-          serial_numbers: Array.isArray(it.serial_numbers) ? it.serial_numbers : [],
-          notes: it.notes || ''
-        };
-      }));
-      setMessage('');
-    } catch (err) { setMessage('خطأ في جلب بيانات أمر الشغل'); }
-  };
+ const openEdit = async (order) => {
+  try {
+    const res = await api.get(`/work-orders/${order.id}`);
+    const full = res.data;
+    setEditOrder(full);
+    setEditForm({
+      work_type: full.work_type || 'installation',
+      description: full.description || '',
+      start_date: full.start_date ? String(full.start_date).slice(0, 10) : '',
+      expected_end_date: full.expected_end_date ? String(full.expected_end_date).slice(0, 10) : '',
+      assigned_to: full.assigned_to || '',
+      notes: full.notes || ''
+    });
+    const srcItems = (Array.isArray(full.items) && full.items.length > 0)
+      ? full.items
+      : [{ item_id: full.item_id, item_name: full.item_name, quantity: full.quantity, warehouse_id: full.warehouse_id, serial_numbers: full.serial_numbers }];
+    setEditItems(srcItems.filter(it => it.item_id).map(it => {
+      const itemMaster = items.find(i => i.id == it.item_id);
+      
+      // التعامل مع السريالات سواء string أو array
+      let serials = [];
+      if (Array.isArray(it.serial_numbers)) {
+        serials = it.serial_numbers;
+      } else if (typeof it.serial_numbers === 'string' && it.serial_numbers.trim() !== '') {
+        serials = it.serial_numbers.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      
+      return {
+        item_id: it.item_id,
+        item_name: it.item_name || itemMaster?.name || '',
+        has_serial: it.has_serial || itemMaster?.has_serial || false,
+        quantity: parseFloat(it.quantity) || 1,
+        unit_price: parseFloat(it.unit_price) || 0,
+        warehouse_id: it.warehouse_id || full.warehouse_id || '',
+        serial_numbers: serials,
+        notes: it.notes || ''
+      };
+    }));
+    setMessage('');
+  } catch (err) { 
+    setMessage('خطأ في جلب بيانات أمر الشغل'); 
+  }
+};
 
   const updateEditItem = (idx, field, value) => {
     setEditItems(prev => prev.map((l, i) => {
