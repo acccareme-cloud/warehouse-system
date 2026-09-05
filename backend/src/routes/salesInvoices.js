@@ -309,6 +309,7 @@ router.get('/approved-orders', verifyToken, async (req, res) => {
        JOIN sales_order_items soi ON soi.sales_order_id = so.id
        LEFT JOIN items i ON soi.item_id = i.id
        WHERE so.status = 'approved' AND (so.order_type = 'sales_order' OR so.order_type IS NULL)
+         AND so.converted_to_invoice_id IS NULL
        ORDER BY so.created_at DESC, soi.id`
     );
     res.json(result.rows);
@@ -608,6 +609,15 @@ router.post('/', verifyToken, requireRole('sales', 'admin'), async (req, res) =>
       }
     }
 
+    // ═══ ربط أمر البيع المصدر بالفاتورة عشان ميظهرش تاني في قائمة أوامر البيع المتاحة ═══
+    if (so_id) {
+      await client.query(
+        `UPDATE sales_orders SET converted_to_invoice_id = $1, converted_to_invoice_type = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [invoice.id, invoice_type, so_id]
+      );
+    }
+
     await client.query('COMMIT');
     res.status(201).json({ message: 'تم إنشاء فاتورة البيع بنجاح', data: invoice });
   } catch (err) {
@@ -704,8 +714,10 @@ router.put('/:id', verifyToken, requireRole('sales', 'admin'), async (req, res) 
 // ═══════════════════════════════════════════════════════════════
 
 router.delete('/:id', verifyToken, async (req, res) => {
+  const client = await pool.connect();
   try {
-    const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    await client.query('BEGIN');
+    const userResult = await client.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
     const isAdmin = userResult.rows.length > 0 && userResult.rows[0].role === 'admin';
 
     let query = "DELETE FROM sales_invoices WHERE id = $1";
@@ -714,16 +726,42 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
     query += " RETURNING *";
 
-    const result = await pool.query(query, [req.params.id]);
+    // ═══ نحذف حركات العميل المرتبطة بالفاتورة الأول — العمود ده مالوش ON DELETE CASCADE
+    // وكان بيمنع الحذف لو الفاتورة اتعمل لها اعتماد مالية وإلغاء قبل كده ═══
+    if (await columnExists('customer_transactions', 'invoice_id')) {
+      await client.query('DELETE FROM customer_transactions WHERE invoice_id = $1', [req.params.id]);
+    }
+
+    const result = await client.query(query, [req.params.id]);
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ message: 'لا يمكن حذف الفاتورة' });
     }
 
+    const deleted = result.rows[0];
+    if (deleted.so_id) {
+      await client.query(
+        `UPDATE sales_orders SET converted_to_invoice_id = NULL, converted_to_invoice_type = NULL WHERE id = $1 AND converted_to_invoice_id = $2`,
+        [deleted.so_id, deleted.id]
+      );
+    }
+    if (await tableExists('sales_invoice_dqs')) {
+      const links = await client.query('SELECT dq_id FROM sales_invoice_dqs WHERE invoice_id = $1', [deleted.id]);
+      for (const l of links.rows) {
+        await client.query(`UPDATE delivery_quotes SET converted_to_invoice_id = NULL WHERE id = $1`, [l.dq_id]);
+      }
+      await client.query('DELETE FROM sales_invoice_dqs WHERE invoice_id = $1', [deleted.id]);
+    }
+
+    await client.query('COMMIT');
     res.json({ message: 'تم الحذف بنجاح' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Delete invoice error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -1572,6 +1610,14 @@ router.put('/:id/cancel-all', verifyToken, requireRole('admin'), async (req, res
         await client.query(`UPDATE delivery_quotes SET converted_to_invoice_id = NULL WHERE id = $1`, [l.dq_id]);
       }
       await client.query('DELETE FROM sales_invoice_dqs WHERE invoice_id = $1', [invoice.id]);
+    }
+
+    // ═══ 6ب) فك ارتباط أمر البيع المصدر عشان يبقى متاح تاني في القائمة ═══
+    if (invoice.so_id) {
+      await client.query(
+        `UPDATE sales_orders SET converted_to_invoice_id = NULL, converted_to_invoice_type = NULL WHERE id = $1`,
+        [invoice.so_id]
+      );
     }
 
     // ═══ 7) رجوع الفاتورة نفسها لحالة مسودة كاملة ═══
