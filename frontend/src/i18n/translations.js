@@ -54,6 +54,11 @@ export const translations = {
     'dashboard.home': 'الرئيسية',
     'dashboard.welcome': 'مرحباً بك',
     'dashboard.modules': 'الوحدات',
+    'dashboard.last7Days': 'آخر 7 أيام',
+    'dashboard.stats.todayInvoices': 'فواتير اليوم',
+    'dashboard.stats.items': 'الأصناف',
+    'dashboard.stats.suppliers': 'الموردين',
+    'dashboard.stats.customers': 'العملاء',
 
     'dashboard.modules.purchases.title': 'المشتريات',
     'dashboard.modules.purchases.desc': 'إدارة المشتريات والموردين',
@@ -71,6 +76,8 @@ export const translations = {
     'dashboard.modules.reports.desc': 'التقارير والإحصائيات',
     'dashboard.modules.locations.title': 'المواقع',
     'dashboard.modules.locations.desc': 'إدارة المواقع والفروع',
+    'dashboard.modules.settings.title': 'الإعدادات',
+    'dashboard.modules.settings.desc': 'إعدادات النظام',
 
     // ===== Module Hub =====
     'moduleHub.back': 'رجوع',
@@ -81,6 +88,7 @@ export const translations = {
     'moduleHub.warehouseTitle': 'إدارة المخزن',
     'moduleHub.reportsTitle': 'التقارير',
 
+    // Purchases Module Menus
     'moduleHub.menus.purchaseRequests.title': 'طلبات الشراء',
     'moduleHub.menus.purchaseRequests.desc': 'إنشاء وإدارة طلبات الشراء',
     'moduleHub.menus.purchaseOrders.title': 'أوامر الشراء',
@@ -100,6 +108,7 @@ export const translations = {
     'moduleHub.menus.currencies.title': 'العملات',
     'moduleHub.menus.currencies.desc': 'إدارة العملات وأسعار الصرف',
 
+    // Sales Module Menus
     'moduleHub.menus.salesOrders.title': 'أوامر البيع',
     'moduleHub.menus.salesOrders.desc': 'إدارة أوامر البيع',
     'moduleHub.menus.salesInvoices.title': 'فواتير البيع',
@@ -123,6 +132,7 @@ export const translations = {
     'moduleHub.menus.workWarranties.title': 'ضمانات العمل',
     'moduleHub.menus.workWarranties.desc': 'متابعة ضمانات التركيب',
 
+    // Treasury Module Menus
     'moduleHub.menus.treasury.title': 'الخزينة',
     'moduleHub.menus.treasury.desc': 'سندات قبض وصرف',
     'moduleHub.menus.bankAccounts.title': 'حسابات البنوك',
@@ -135,6 +145,20 @@ export const translations = {
     'moduleHub.menus.expenseReport.desc': 'حسب مراكز التكلفة',
     'moduleHub.menus.partner.title': 'الشريك',
     'moduleHub.menus.partner.desc': 'تمويل وصرف للشركاء',
+
+    // Warehouse Module Menus
+    'moduleHub.menus.items.title': 'الأصناف',
+    'moduleHub.menus.items.desc': 'إدارة أصناف المخزن',
+    'moduleHub.menus.receipts.title': 'إيصالات الاستلام',
+    'moduleHub.menus.receipts.desc': 'استلام البضائع للمخزن',
+    'moduleHub.menus.requests.title': 'طلبات الصرف',
+    'moduleHub.menus.requests.desc': 'صرف من المخزن',
+    'moduleHub.menus.movements.title': 'الحركات',
+    'moduleHub.menus.movements.desc': 'حركة الأصناف بين المخازن',
+    'moduleHub.menus.warehouseIssues.title': 'مشاكل المخزن',
+    'moduleHub.menus.warehouseIssues.desc': 'تتبع المشاكل والعيوب',
+    'moduleHub.menus.quality.title': 'مراقبة الجودة',
+    'moduleHub.menus.quality.desc': 'فحص جودة الأصناف',
 
     // ===== Treasury =====
     'treasury.title': 'نظام الخزينة والبنك',
@@ -312,6 +336,7 @@ export const translations = {
     'status.cancelled': 'ملغي',
     'status.return': 'مشكلة',
     'status.draft': 'مسودة',
+    'status.completed': 'مكتمل',
 
     // Actions
     'action.approve': 'موافقة',
@@ -329,6 +354,66 @@ export const translations = {
     'currency.egpSymbol': 'ج.م',
     'currency.usdSymbol': '$',
     'currency.eurSymbol': '€',
+
+    // Settings
+    'settings.title': 'الإعدادات',
+    'settings.theme': 'الوضع اللوني',
+    'settings.themeDesc': 'اختر الوضع اللوني للبرنامج (يؤثر على كل الشاشات)',
+    'settings.users': 'مستخدمين',
+    'settings.changePassword': 'تغيير باسورد',
+    'settings.taxes': 'ضرائب',
+    'settings.backup': 'Backup',
+    'settings.clear': 'تصفير',
+    'settings.createUser': 'إنشاء مستخدم جديد',
+    'settings.username': 'اسم المستخدم',
+    'settings.password': 'كلمة المرور',
+    'settings.fullName': 'الاسم الكامل',
+    'settings.role': 'الدور',
+    'settings.createUserBtn': 'إنشاء مستخدم',
+    'settings.currentUsers': 'المستخدمين الحاليين',
+    'settings.user': 'المستخدم',
+    'settings.createdAt': 'تاريخ الإنشاء',
+    'settings.change': 'تغيير',
+
+    // Roles
+    'role.admin': 'مدير',
+    'role.finance': 'مالية',
+    'role.entry_accountant': 'محاسب إدخال',
+    'role.review_accountant': 'محاسب مراجعة',
+    'role.treasury_accountant': 'محاسب خزينة',
+    'role.storekeeper': 'أمين مخزن',
+    'role.sales': 'مبيعات',
+    'role.purchasing': 'مشتريات',
+
+    // Warehouse
+    'warehouse.title': 'إدارة المخزن',
+    'warehouse.items': 'الأصناف',
+    'warehouse.receipts': 'إيصالات الاستلام',
+    'warehouse.requests': 'طلبات الصرف',
+    'warehouse.movements': 'الحركات',
+    'warehouse.issues': 'مشاكل المخزن',
+    'warehouse.quality': 'مراقبة الجودة',
+
+    // Purchase Requests
+    'purchaseRequests.title': 'طلبات الشراء',
+    'purchaseRequests.newRequest': 'طلب شراء جديد',
+    'purchaseRequests.requestNumber': 'رقم الطلب',
+    'purchaseRequests.department': 'القسم',
+    'purchaseRequests.warehouse': 'المخزن',
+    'purchaseRequests.currency': 'العملة',
+    'purchaseRequests.exchangeRate': 'سعر الصرف',
+    'purchaseRequests.submitRequest': 'إرسال الطلب',
+    'purchaseRequests.allRequests': 'جميع طلبات الشراء',
+    'purchaseRequests.items': 'الأصناف',
+    'purchaseRequests.addItem': 'إضافة صنف',
+    'purchaseRequests.category': 'الصنف',
+    'purchaseRequests.quantity': 'الكمية',
+    'purchaseRequests.unit': 'الوحدة',
+    'purchaseRequests.priceUSD': 'السعر (USD)',
+    'purchaseRequests.priceEGP': 'السعر (EGP)',
+    'purchaseRequests.totalUSD': 'الإجمالي (USD)',
+    'purchaseRequests.notes': 'ملاحظات',
+    'purchaseRequests.requestNotes': 'ملاحظات الطلب',
   },
 
   en: {
@@ -384,6 +469,11 @@ export const translations = {
     'dashboard.home': 'Home',
     'dashboard.welcome': 'Welcome',
     'dashboard.modules': 'Modules',
+    'dashboard.last7Days': 'Last 7 Days',
+    'dashboard.stats.todayInvoices': 'Today Invoices',
+    'dashboard.stats.items': 'Items',
+    'dashboard.stats.suppliers': 'Suppliers',
+    'dashboard.stats.customers': 'Customers',
 
     'dashboard.modules.purchases.title': 'Purchases',
     'dashboard.modules.purchases.desc': 'Manage purchases and suppliers',
@@ -401,6 +491,8 @@ export const translations = {
     'dashboard.modules.reports.desc': 'Reports and statistics',
     'dashboard.modules.locations.title': 'Locations',
     'dashboard.modules.locations.desc': 'Manage locations and branches',
+    'dashboard.modules.settings.title': 'Settings',
+    'dashboard.modules.settings.desc': 'System settings',
 
     // ===== Module Hub =====
     'moduleHub.back': 'Back',
@@ -411,6 +503,7 @@ export const translations = {
     'moduleHub.warehouseTitle': 'Warehouse Management',
     'moduleHub.reportsTitle': 'Reports',
 
+    // Purchases Module Menus
     'moduleHub.menus.purchaseRequests.title': 'Purchase Requests',
     'moduleHub.menus.purchaseRequests.desc': 'Create and manage purchase requests',
     'moduleHub.menus.purchaseOrders.title': 'Purchase Orders',
@@ -430,6 +523,7 @@ export const translations = {
     'moduleHub.menus.currencies.title': 'Currencies',
     'moduleHub.menus.currencies.desc': 'Manage currencies and exchange rates',
 
+    // Sales Module Menus
     'moduleHub.menus.salesOrders.title': 'Sales Orders',
     'moduleHub.menus.salesOrders.desc': 'Manage sales orders',
     'moduleHub.menus.salesInvoices.title': 'Sales Invoices',
@@ -453,6 +547,7 @@ export const translations = {
     'moduleHub.menus.workWarranties.title': 'Work Warranties',
     'moduleHub.menus.workWarranties.desc': 'Track installation warranties',
 
+    // Treasury Module Menus
     'moduleHub.menus.treasury.title': 'Treasury',
     'moduleHub.menus.treasury.desc': 'Receipt and payment vouchers',
     'moduleHub.menus.bankAccounts.title': 'Bank Accounts',
@@ -465,6 +560,20 @@ export const translations = {
     'moduleHub.menus.expenseReport.desc': 'By cost centers',
     'moduleHub.menus.partner.title': 'Partner',
     'moduleHub.menus.partner.desc': 'Partner financing and payment',
+
+    // Warehouse Module Menus
+    'moduleHub.menus.items.title': 'Items',
+    'moduleHub.menus.items.desc': 'Manage warehouse items',
+    'moduleHub.menus.receipts.title': 'Receipts',
+    'moduleHub.menus.receipts.desc': 'Receive goods to warehouse',
+    'moduleHub.menus.requests.title': 'Requests',
+    'moduleHub.menus.requests.desc': 'Issue from warehouse',
+    'moduleHub.menus.movements.title': 'Movements',
+    'moduleHub.menus.movements.desc': 'Item movements between warehouses',
+    'moduleHub.menus.warehouseIssues.title': 'Warehouse Issues',
+    'moduleHub.menus.warehouseIssues.desc': 'Track issues and defects',
+    'moduleHub.menus.quality.title': 'Quality Control',
+    'moduleHub.menus.quality.desc': 'Inspect item quality',
 
     // ===== Treasury =====
     'treasury.title': 'Treasury and Bank System',
@@ -642,6 +751,7 @@ export const translations = {
     'status.cancelled': 'Cancelled',
     'status.return': 'Problem',
     'status.draft': 'Draft',
+    'status.completed': 'Completed',
 
     // Actions
     'action.approve': 'Approve',
@@ -659,6 +769,66 @@ export const translations = {
     'currency.egpSymbol': 'EGP',
     'currency.usdSymbol': '$',
     'currency.eurSymbol': '€',
+
+    // Settings
+    'settings.title': 'Settings',
+    'settings.theme': 'Theme',
+    'settings.themeDesc': 'Choose the main theme for the program (affects all screens)',
+    'settings.users': 'Users',
+    'settings.changePassword': 'Change Password',
+    'settings.taxes': 'Taxes',
+    'settings.backup': 'Backup',
+    'settings.clear': 'Clear',
+    'settings.createUser': 'Create New User',
+    'settings.username': 'Username',
+    'settings.password': 'Password',
+    'settings.fullName': 'Full Name',
+    'settings.role': 'Role',
+    'settings.createUserBtn': 'Create User',
+    'settings.currentUsers': 'Current Users',
+    'settings.user': 'User',
+    'settings.createdAt': 'Created At',
+    'settings.change': 'Change',
+
+    // Roles
+    'role.admin': 'Admin',
+    'role.finance': 'Finance',
+    'role.entry_accountant': 'Entry Accountant',
+    'role.review_accountant': 'Review Accountant',
+    'role.treasury_accountant': 'Treasury Accountant',
+    'role.storekeeper': 'Storekeeper',
+    'role.sales': 'Sales',
+    'role.purchasing': 'Purchasing',
+
+    // Warehouse
+    'warehouse.title': 'Warehouse Management',
+    'warehouse.items': 'Items',
+    'warehouse.receipts': 'Receipts',
+    'warehouse.requests': 'Requests',
+    'warehouse.movements': 'Movements',
+    'warehouse.issues': 'Warehouse Issues',
+    'warehouse.quality': 'Quality Control',
+
+    // Purchase Requests
+    'purchaseRequests.title': 'Purchase Requests',
+    'purchaseRequests.newRequest': 'New Purchase Request',
+    'purchaseRequests.requestNumber': 'Request Number',
+    'purchaseRequests.department': 'Department',
+    'purchaseRequests.warehouse': 'Warehouse',
+    'purchaseRequests.currency': 'Currency',
+    'purchaseRequests.exchangeRate': 'Exchange Rate',
+    'purchaseRequests.submitRequest': 'Submit Request',
+    'purchaseRequests.allRequests': 'All Purchase Requests',
+    'purchaseRequests.items': 'Items',
+    'purchaseRequests.addItem': 'Add Item',
+    'purchaseRequests.category': 'Category',
+    'purchaseRequests.quantity': 'Quantity',
+    'purchaseRequests.unit': 'Unit',
+    'purchaseRequests.priceUSD': 'Price (USD)',
+    'purchaseRequests.priceEGP': 'Price (EGP)',
+    'purchaseRequests.totalUSD': 'Total (USD)',
+    'purchaseRequests.notes': 'Notes',
+    'purchaseRequests.requestNotes': 'Request Notes',
   }
 };
 
