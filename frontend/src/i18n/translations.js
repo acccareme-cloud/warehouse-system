@@ -155,8 +155,8 @@ export const translations = {
     'moduleHub.menus.requests.desc': 'صرف من المخزن',
     'moduleHub.menus.movements.title': 'الحركات',
     'moduleHub.menus.movements.desc': 'حركة الأصناف بين المخازن',
-    'moduleHub.menus.warehouseIssues.title': 'مشاكل المخزن',
-    'moduleHub.menus.warehouseIssues.desc': 'تتبع المشاكل والعيوب',
+    'moduleHub.menus.warehouseIssues.title': 'إذون صرف المخزن',
+    'moduleHub.menus.warehouseIssues.desc': 'صرف الأصناف من المخزن (يدوي أو من الفواتير)',
     'moduleHub.menus.quality.title': 'مراقبة الجودة',
     'moduleHub.menus.quality.desc': 'فحص جودة الأصناف',
 
