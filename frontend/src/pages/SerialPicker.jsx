@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 
 /**
@@ -17,6 +17,11 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
   const [stockSerials, setStockSerials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const seededRef = useRef(false);
+
+  useEffect(() => {
+    seededRef.current = false;
+  }, [itemId, warehouseId]);
 
   useEffect(() => {
     if (!itemId || !warehouseId) { setStockSerials([]); return; }
@@ -37,9 +42,19 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
     return () => { cancelled = true; };
   }, [itemId, warehouseId]);
 
- const selected = Array.isArray(value) && value.length > 0 
-  ? value 
-  : stockSerials.filter(s => s.status === 'reserved').map(s => s.serial_number);
+  // ═══ لما السريالات تتحمّل، لو فيه سريالات محجوزة أصلاً لنفس المستند ده وحالة
+  // الأب (value) لسه فاضية، نبلّغ الأب بيها فعليًا (مش نعرضها بصريًا بس) — مرة واحدة لكل صنف/مخزن ═══
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (loading) return;
+    seededRef.current = true;
+    if (Array.isArray(value) && value.length === 0) {
+      const reservedHere = stockSerials.filter(s => s.status === 'reserved').map(s => s.serial_number);
+      if (reservedHere.length > 0 && onChange) onChange(reservedHere);
+    }
+  }, [stockSerials, loading]);
+
+  const selected = Array.isArray(value) ? value : [];
   // دمج: سريالات الرصيد + أي سريال مختار حالياً (مثلاً محجوز لهذا المستند)
   const knownSet = new Set(stockSerials.map(s => s.serial_number));
   const extraSelected = selected.filter(s => !knownSet.has(s));
