@@ -6,7 +6,7 @@ const router = express.Router();
 // Get all items with warehouse and category names
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const { show_zero_stock } = req.query;
+    const { only_in_stock } = req.query;
     
     let query = `
       SELECT i.*, w.name as warehouse_name, c.name as category_name, COALESCE(s.quantity, 0) as quantity
@@ -17,8 +17,8 @@ router.get('/', verifyToken, async (req, res) => {
       WHERE (i.is_active = true OR i.is_active IS NULL)
     `;
     
-    // إخفاء الأصناف صفر الرصيد إلا لو طُلب إظهارها
-    if (show_zero_stock !== 'true') {
+    // الأصناف بتظهر دايمًا (حتى لو رصيدها صفر) — الإخفاء بيبقى فقط لو طُلب صراحة
+    if (only_in_stock === 'true') {
       query += ` AND COALESCE(s.quantity, 0) > 0`;
     }
     
@@ -116,7 +116,7 @@ router.get('/next-code', verifyToken, async (req, res) => {
     const result = await pool.query(`
       SELECT code 
       FROM items 
-      WHERE code ~ '^[0-9]+$'
+      WHERE code ~ '^[0-9]+$' AND (is_active = true OR is_active IS NULL)
       ORDER BY CAST(code AS INTEGER) DESC 
       LIMIT 1
     `);
