@@ -46,10 +46,12 @@ async function attachItemsToInvoices(rows) {
     const ids = rows.map(r => r.id);
     const itemsResult = await pool.query(
       `SELECT sii.*, i.name AS item_name_lookup, i.code AS item_code,
-              i.has_serial AS item_has_serial, w.name AS warehouse_name
+              i.has_serial AS item_has_serial, w.name AS warehouse_name,
+              COALESCE(u.full_name, u.username) AS issued_by_name
        FROM sales_invoice_items sii
        LEFT JOIN items i ON sii.item_id = i.id
        LEFT JOIN warehouses w ON sii.warehouse_id = w.id
+       LEFT JOIN users u ON sii.issued_by = u.id
        WHERE sii.invoice_id = ANY($1::int[])
        ORDER BY sii.id`,
       [ids]
@@ -277,7 +279,7 @@ router.get('/warehouse-approved', verifyToken, async (req, res) => {
         i.name as item_name, i.code as item_code,
         c.name as customer_name_display,
         w.name as warehouse_name,
-        u.username as warehouse_approved_by_name
+        COALESCE(u.full_name, u.username) as warehouse_approved_by_name
        FROM sales_invoices si
        LEFT JOIN items i ON si.item_id = i.id
        LEFT JOIN customers c ON si.customer_id = c.id
@@ -1572,6 +1574,15 @@ router.put('/:id/cancel-all', verifyToken, requireRole('admin'), async (req, res
       }
     }
 
+    // ═══ 2ب) مسح سجل حركات المخزن (صرف/إضافة) المرتبطة بهذه الفاتورة — عشان لو اتصرفت تاني
+    // بعد ما ترجع مسودة، ميتسجّلش صرف مضاعف في سجل الحركات (الرصيد بيرجع صح بس السجل كان بيفضل مكرر) ═══
+    if (await columnExists('inventory_movements', 'movement_type')) {
+      await client.query(
+        `DELETE FROM inventory_movements WHERE reference_type = 'sales_invoice' AND reference_id = $1`,
+        [invoice.id]
+      );
+    }
+
     // ═══ 3) عكس أي سريالات لسه متسجلة على أسطر الفاتورة نفسها (احتياط) ═══
     if (await tableExists('sales_invoice_items')) {
       const invItems = await client.query('SELECT * FROM sales_invoice_items WHERE invoice_id = $1', [invoice.id]);
@@ -1739,8 +1750,8 @@ router.get('/:id/print', verifyToken, async (req, res) => {
         so.delivery_location as so_delivery_location,
         si.pricing_sheet_number,
         u.full_name as created_by_name,
-        u2.username as manager_approved_by_name,
-        u3.username as finance_approved_by_name
+        COALESCE(u2.full_name, u2.username) as manager_approved_by_name,
+        COALESCE(u3.full_name, u3.username) as finance_approved_by_name
        FROM sales_invoices si
        LEFT JOIN items i ON si.item_id = i.id
        LEFT JOIN customers c ON si.customer_id = c.id
