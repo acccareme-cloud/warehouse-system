@@ -1323,15 +1323,26 @@ router.put('/:id/warehouse-approve', verifyToken, requireRole('storekeeper', 'ad
       const voucherId = voucherRes.rows[0].id;
 
       if (await tableExists('warehouse_issue_items')) {
+        const hasItemWarehouseCol = await columnExists('warehouse_issue_items', 'warehouse_id');
         for (const line of processedLines) {
           const iName = line.item_name || (await client.query('SELECT name FROM items WHERE id = $1', [line.item_id])).rows[0]?.name || '';
-          await client.query(
-            `INSERT INTO warehouse_issue_items (voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [voucherId, line.item_id, iName, line.quantity, line.unit_price || 0,
-             (line.quantity * (line.unit_price || 0)),
-             line.resolved_serials ? line.resolved_serials.join(', ') : null, line.notes || null]
-          );
+          if (hasItemWarehouseCol) {
+            await client.query(
+              `INSERT INTO warehouse_issue_items (voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes, warehouse_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+              [voucherId, line.item_id, iName, line.quantity, line.unit_price || 0,
+               (line.quantity * (line.unit_price || 0)),
+               line.resolved_serials ? line.resolved_serials.join(', ') : null, line.notes || null, line.warehouse_id]
+            );
+          } else {
+            await client.query(
+              `INSERT INTO warehouse_issue_items (voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [voucherId, line.item_id, iName, line.quantity, line.unit_price || 0,
+               (line.quantity * (line.unit_price || 0)),
+               line.resolved_serials ? line.resolved_serials.join(', ') : null, line.notes || null]
+            );
+          }
         }
       }
     }

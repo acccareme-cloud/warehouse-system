@@ -232,13 +232,6 @@ function WarehouseIssues() {
           .map(s => s.serial_number);
         
         lineSerials[lineKey] = reservedSerials;
-        
-        // 🔍 Debug log
-        console.log(`Line ${lineKey}:`, {
-          item: l.item_name,
-          reservedSerials,
-          allSerials
-        });
       } catch (err) {
         console.error(`Error fetching serials for line ${lineKey}:`, err);
         lineSerials[lineKey] = [];
@@ -262,15 +255,6 @@ function WarehouseIssues() {
     const confirmIssue = async () => {
   const { invoice, lines, lineSerials, lineWarehouses } = issueModal;
   
-  // 🔍 Debug logs
-  console.log('lines:', lines.map(l => ({ 
-    item: l.item_name, 
-    lineKey: l._lineKey,
-    quantity: l.quantity 
-  })));
-  console.log('lineSerials:', lineSerials);
-  console.log('lineWarehouses:', lineWarehouses);
-  
   for (const l of lines) {
     const lineKey = l._lineKey;
     
@@ -281,12 +265,6 @@ function WarehouseIssues() {
     
     if (l.has_serial) {
       const sel = lineSerials[lineKey] || [];
-      console.log(`Checking ${l.item_name}:`, { 
-        quantity: parseInt(l.quantity), 
-        selected: sel.length,
-        serials: sel
-      });
-      
       if (sel.length !== parseInt(l.quantity)) {
         setIssueModal(p => ({ 
           ...p, 
@@ -307,8 +285,6 @@ function WarehouseIssues() {
         serial_numbers: l.has_serial ? (lineSerials[lineKey] || []) : undefined
       };
     });
-    
-    console.log('Sending to backend:', { line_serials });
     
     const r = await api.put(`/sales-invoices/${invoice.id}/warehouse-approve`, { line_serials });
     const remaining = r.data?.remaining_lines || 0;
@@ -507,6 +483,7 @@ function WarehouseIssues() {
               <th>#</th>
               <th>الصنف</th>
               <th>الكمية</th>
+              <th>المخزن</th>
               <th>السيريال</th>
               <th>ملاحظات</th>
             </tr>
@@ -517,10 +494,11 @@ function WarehouseIssues() {
                 <td>${i + 1}</td>
                 <td>${item.item_name || item.item_code || '-'}</td>
                 <td class="quantity">${item.quantity}</td>
+                <td>${item.warehouse_name || '-'}</td>
                 <td style="direction:ltr;font-family:monospace;font-size:12px;">${Array.isArray(item.serial_numbers) ? item.serial_numbers.join(', ') : (item.serial_numbers || '-')}</td>
                 <td>${item.notes || '-'}</td>
               </tr>
-            `).join('') : '<tr><td colspan="5" style="text-align:center">لا يوجد أصناف</td></tr>'}
+            `).join('') : '<tr><td colspan="6" style="text-align:center">لا يوجد أصناف</td></tr>'}
           </tbody>
         </table>
 
@@ -971,11 +949,11 @@ function WarehouseIssues() {
         </div>
       )}
 
-      {/* 📦 مودال الصرف — سريالات من الرصيد لكل صنف */}
+      {/* 📦 مودال الصرف — نفس شكل جدول "الأصناف" بتاع الإذن اليدوي، بعمود مخزن لكل صنف */}
       {issueModal.open && issueModal.invoice && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
           onClick={() => setIssueModal({ open: false, invoice: null, warehouseId: null, warehouseName: '', lines: [], lineSerials: {}, lineWarehouses: {}, error: '' })}>
-          <div style={{ color: '#1e293b', backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '750px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
+          <div style={{ color: '#1e293b', backgroundColor: 'white', borderRadius: '10px', padding: '25px', maxWidth: '950px', width: '95%', maxHeight: '90vh', overflow: 'auto', direction: 'rtl' }}
             onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: '#dc2626' }}>📦 صرف من مخزن: {issueModal.warehouseName}</h3>
@@ -990,47 +968,60 @@ function WarehouseIssues() {
 
             {issueModal.error && <p style={{ padding: '10px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '6px' }}>{issueModal.error}</p>}
 
-                        {issueModal.lines.map((l) => {
-              const lineKey = l._lineKey || l.id || l.item_id || 'default';
-              return (
-              <div key={lineKey} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
-                  {l.item_name} <span style={{ color: '#2563eb' }}>(الكمية: {l.quantity})</span>
-                  {l.has_serial ? <span style={{ color: '#9333ea', fontSize: '12px', marginRight: '8px' }}>🔢 بسريال</span> : <span style={{ color: '#94a3b8', fontSize: '12px', marginRight: '8px' }}>بدون سريال</span>}
-                </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#dc2626', color: 'white' }}>
+                  <th style={thStyle}>الصنف</th>
+                  <th style={thStyle}>الكمية</th>
+                  <th style={thStyle}>المخزن</th>
+                  <th style={thStyle}>السريالات (من رصيد المخزن)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {issueModal.lines.map((l) => {
+                  const lineKey = l._lineKey || l.id || l.item_id || 'default';
+                  return (
+                    <tr key={lineKey}>
+                      <td style={tdStyle}>
+                        {l.item_name}
+                        {l.has_serial ? <span style={{ color: '#9333ea', fontSize: '11px', marginRight: '6px' }}>🔢 بسريال</span> : <span style={{ color: '#94a3b8', fontSize: '11px', marginRight: '6px' }}>بدون سريال</span>}
+                      </td>
+                      <td style={tdStyle}>{l.quantity}</td>
+                      <td style={{ ...tdStyle, minWidth: '150px' }}>
+                        <select
+                          value={issueModal.lineWarehouses[lineKey] || ''}
+                          onChange={(e) => setIssueModal(p => ({
+                            ...p,
+                            lineWarehouses: { ...p.lineWarehouses, [lineKey]: e.target.value },
+                            lineSerials: { ...p.lineSerials, [lineKey]: [] }
+                          }))}
+                          style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }}
+                        >
+                          <option value="">— اختر المخزن —</option>
+                          {warehouses.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
+                        </select>
+                        {!issueModal.lineWarehouses[lineKey] && (
+                          <div style={{ color: '#dc2626', fontSize: '11px', marginTop: '4px' }}>⚠️ لازم تحدد المخزن</div>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, minWidth: '260px' }}>
+                        {l.has_serial ? (
+                          <SerialPicker
+                            itemId={l.item_id}
+                            warehouseId={issueModal.lineWarehouses[lineKey]}
+                            count={l.quantity}
+                            value={issueModal.lineSerials[lineKey] || []}
+                            onChange={(arr) => setIssueModal(p => ({ ...p, lineSerials: { ...p.lineSerials, [lineKey]: arr } }))}
+                          />
+                        ) : <span style={{ color: '#9ca3af', fontSize: '12px' }}>بدون سريال</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-                {/* 🏬 اختيار المخزن لكل صنف على حدة */}
-                <div style={{ marginBottom: '8px' }}>
-                  <label style={{ fontSize: '12px', color: '#475569', marginLeft: '6px' }}>المخزن:</label>
-                  <select
-                    value={issueModal.lineWarehouses[lineKey] || ''}
-                    onChange={(e) => setIssueModal(p => ({
-                      ...p,
-                      lineWarehouses: { ...p.lineWarehouses, [lineKey]: e.target.value },
-                      lineSerials: { ...p.lineSerials, [lineKey]: [] }
-                    }))}
-                    style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }}
-                  >
-                    <option value="">— اختر المخزن —</option>
-                    {warehouses.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
-                  </select>
-                  {!issueModal.lineWarehouses[lineKey] && (
-                    <span style={{ color: '#dc2626', fontSize: '12px', marginRight: '8px' }}>⚠️ لازم تحدد المخزن</span>
-                  )}
-                </div>
-
-                {l.has_serial && (
-                  <SerialPicker
-                    itemId={l.item_id}
-                    warehouseId={issueModal.lineWarehouses[lineKey]}
-                    count={l.quantity}
-                    value={issueModal.lineSerials[lineKey] || []}
-                    onChange={(arr) => setIssueModal(p => ({ ...p, lineSerials: { ...p.lineSerials, [lineKey]: arr } }))}
-                  />
-                )}
-              </div>
-              );
-            })}            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
               <button onClick={confirmIssue} style={{ padding: '10px 30px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 ✓ تأكيد الصرف
               </button>

@@ -570,8 +570,8 @@ export const translations = {
     'moduleHub.menus.requests.desc': 'Issue from warehouse',
     'moduleHub.menus.movements.title': 'Movements',
     'moduleHub.menus.movements.desc': 'Item movements between warehouses',
-    'moduleHub.menus.warehouseIssues.title': 'Warehouse Issues',
-    'moduleHub.menus.warehouseIssues.desc': 'Track issues and defects',
+    'moduleHub.menus.warehouseIssues.title': 'Warehouse Dispatch',
+    'moduleHub.menus.warehouseIssues.desc': 'Dispatch items from the warehouse (manual or invoice-based)',
     'moduleHub.menus.quality.title': 'Quality Control',
     'moduleHub.menus.quality.desc': 'Inspect item quality',
 

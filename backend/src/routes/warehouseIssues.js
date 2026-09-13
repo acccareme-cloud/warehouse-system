@@ -3,6 +3,24 @@ const pool = require('../config/db');
 const { verifyToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+async function columnExists(tableName, columnName) {
+  try {
+    const result = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns 
+        WHERE table_name = $1 AND column_name = $2
+      )
+    `, [tableName, columnName]);
+    return result.rows[0].exists;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Generate next voucher number
 router.get('/next-number', verifyToken, async (req, res) => {
   try {
@@ -111,20 +129,36 @@ router.post('/', verifyToken, requireRole('storekeeper', 'admin'), async (req, r
     );
 
     const voucherId = voucherResult.rows[0].id;
+    const hasItemWarehouseCol = await columnExists('warehouse_issue_items', 'warehouse_id');
 
     // نضيف الأصناف
     for (const item of items) {
-      await client.query(
-        `INSERT INTO warehouse_issue_items (
-          voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          voucherId, item.item_id, item.item_name,
-          item.quantity, item.unit_price || 0,
-          (item.quantity * (item.unit_price || 0)),
-          item.serial_numbers || null, item.notes
-        ]
-      );
+      const itemWarehouseId = fkOrNull(item.warehouse_id) || fkOrNull(warehouse_id);
+      if (hasItemWarehouseCol) {
+        await client.query(
+          `INSERT INTO warehouse_issue_items (
+            voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes, warehouse_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            voucherId, item.item_id, item.item_name,
+            item.quantity, item.unit_price || 0,
+            (item.quantity * (item.unit_price || 0)),
+            item.serial_numbers || null, item.notes, itemWarehouseId
+          ]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO warehouse_issue_items (
+            voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            voucherId, item.item_id, item.item_name,
+            item.quantity, item.unit_price || 0,
+            (item.quantity * (item.unit_price || 0)),
+            item.serial_numbers || null, item.notes
+          ]
+        );
+      }
 
       // نحجز السريالات لحد ما يتم اعتماد الجودة والصرف الفعلي
       if (item.serial_numbers && item.serial_numbers.length > 0) {
@@ -190,8 +224,14 @@ router.get('/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ message: 'الإذن غير موجود' });
     }
 
+    const hasItemWarehouseCol = await columnExists('warehouse_issue_items', 'warehouse_id');
     const itemsResult = await pool.query(
-      `SELECT * FROM warehouse_issue_items WHERE voucher_id = $1 ORDER BY id`,
+      hasItemWarehouseCol
+        ? `SELECT wii.*, w.name AS warehouse_name
+           FROM warehouse_issue_items wii
+           LEFT JOIN warehouses w ON wii.warehouse_id = w.id
+           WHERE wii.voucher_id = $1 ORDER BY wii.id`
+        : `SELECT * FROM warehouse_issue_items WHERE voucher_id = $1 ORDER BY id`,
       [req.params.id]
     );
 
@@ -433,18 +473,34 @@ router.put('/:id', verifyToken, requireRole('admin'), async (req, res) => {
 
     // استبدال الأصناف + حجز السريالات الجديدة
     await client.query('DELETE FROM warehouse_issue_items WHERE voucher_id = $1', [req.params.id]);
+    const hasItemWarehouseCol = await columnExists('warehouse_issue_items', 'warehouse_id');
     for (const item of cleanItems) {
-      await client.query(
-        `INSERT INTO warehouse_issue_items (
-          voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          req.params.id, item.item_id, item.item_name,
-          item.quantity, item.unit_price || 0,
-          (item.quantity * (item.unit_price || 0)),
-          item.serial_numbers || null, item.notes
-        ]
-      );
+      const itemWarehouseId = fkOrNull(item.warehouse_id) || fkOrNull(targetWarehouseId);
+      if (hasItemWarehouseCol) {
+        await client.query(
+          `INSERT INTO warehouse_issue_items (
+            voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes, warehouse_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            req.params.id, item.item_id, item.item_name,
+            item.quantity, item.unit_price || 0,
+            (item.quantity * (item.unit_price || 0)),
+            item.serial_numbers || null, item.notes, itemWarehouseId
+          ]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO warehouse_issue_items (
+            voucher_id, item_id, item_name, quantity, unit_price, total_price, serial_numbers, notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            req.params.id, item.item_id, item.item_name,
+            item.quantity, item.unit_price || 0,
+            (item.quantity * (item.unit_price || 0)),
+            item.serial_numbers || null, item.notes
+          ]
+        );
+      }
 
       if (item.serial_numbers && item.serial_numbers.length > 0) {
         await client.query(
