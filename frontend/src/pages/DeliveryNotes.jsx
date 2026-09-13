@@ -380,6 +380,7 @@ const openEdit = async (note) => {
                           count={line.quantity}
                           value={line.serial_numbers || []}
                           onChange={(arr) => updateEditLine(idx, 'serial_numbers', arr)}
+                          invoiceId={editNote.invoice_id}
                         />
                       ) : <span style={{ color: '#9ca3af', fontSize: '12px' }}>بدون سريال</span>}
                     </td>

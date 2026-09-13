@@ -45,17 +45,26 @@ router.get('/next-number', verifyToken, async (req, res) => {
 // جلب السريالات المتاحة لصنف في مخزن معيّن - تُستخدم قبل الصرف
 // ?include_reserved=1 → يرجع [{serial_number, status}] شامل المحجوزة (لشاشات إذن التسليم/أمر الشغل/التعديل)
 router.get('/available-serials/:itemId', verifyToken, async (req, res) => {
-  const { warehouse_id, include_reserved } = req.query;
+  const { warehouse_id, include_reserved, invoice_id } = req.query;
   if (!warehouse_id) {
     return res.status(400).json({ message: 'المخزن مطلوب' });
   }
   try {
     if (include_reserved === '1' || include_reserved === 'true') {
       const result = await pool.query(
-        `SELECT serial_number, status FROM item_serials 
-         WHERE item_id = $1 AND warehouse_id = $2 AND status IN ('available', 'reserved') 
-         ORDER BY status, serial_number`,
-        [req.params.itemId, warehouse_id]
+        `SELECT s.serial_number, s.status,
+                EXISTS (
+                  SELECT 1 FROM work_order_items woi
+                  JOIN work_orders wo ON wo.id = woi.work_order_id
+                  WHERE wo.invoice_id = $3::int
+                    AND woi.item_id = s.item_id
+                    AND woi.warehouse_id = s.warehouse_id
+                    AND s.serial_number = ANY(woi.serial_numbers)
+                ) AS same_invoice
+         FROM item_serials s
+         WHERE s.item_id = $1 AND s.warehouse_id = $2 AND s.status IN ('available', 'reserved')
+         ORDER BY s.status, s.serial_number`,
+        [req.params.itemId, warehouse_id, invoice_id || null]
       );
       return res.json(result.rows);
     }

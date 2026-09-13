@@ -1012,6 +1012,7 @@ function WarehouseIssues() {
                             count={l.quantity}
                             value={issueModal.lineSerials[lineKey] || []}
                             onChange={(arr) => setIssueModal(p => ({ ...p, lineSerials: { ...p.lineSerials, [lineKey]: arr } }))}
+                            invoiceId={issueModal.invoice?.id}
                           />
                         ) : <span style={{ color: '#9ca3af', fontSize: '12px' }}>بدون سريال</span>}
                       </td>

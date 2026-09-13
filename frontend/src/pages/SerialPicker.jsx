@@ -13,7 +13,7 @@ import api from '../services/api';
  * - value: مصفوفة السريالات المختارة حالياً
  * - onChange: (newArray) => void
  */
-function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
+function SerialPicker({ itemId, warehouseId, count, value = [], onChange, invoiceId }) {
   const [stockSerials, setStockSerials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +31,7 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
       setError('');
       try {
         const r = await api.get(`/warehouse-issues/available-serials/${itemId}`, {
-          params: { warehouse_id: warehouseId, include_reserved: 1 }
+          params: { warehouse_id: warehouseId, include_reserved: 1, invoice_id: invoiceId || undefined }
         });
         if (!cancelled) setStockSerials(Array.isArray(r.data) ? r.data : []);
       } catch (e) {
@@ -40,16 +40,16 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [itemId, warehouseId]);
+  }, [itemId, warehouseId, invoiceId]);
 
-  // ═══ لما السريالات تتحمّل، لو فيه سريالات محجوزة أصلاً لنفس المستند ده وحالة
-  // الأب (value) لسه فاضية، نبلّغ الأب بيها فعليًا (مش نعرضها بصريًا بس) — مرة واحدة لكل صنف/مخزن ═══
+  // ═══ لما السريالات تتحمّل، لو فيه سريالات محجوزة أصلاً لنفس المستند ده (أو لأمر شغل
+  // تابع لنفس الفاتورة) وحالة الأب (value) لسه فاضية، نبلّغ الأب بيها فعليًا — مرة واحدة لكل صنف/مخزن ═══
   useEffect(() => {
     if (seededRef.current) return;
     if (loading) return;
     seededRef.current = true;
     if (Array.isArray(value) && value.length === 0) {
-      const reservedHere = stockSerials.filter(s => s.status === 'reserved').map(s => s.serial_number);
+      const reservedHere = stockSerials.filter(s => s.status === 'reserved' && s.same_invoice).map(s => s.serial_number);
       if (reservedHere.length > 0 && onChange) onChange(reservedHere);
     }
   }, [stockSerials, loading]);
@@ -59,14 +59,14 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
   const knownSet = new Set(stockSerials.map(s => s.serial_number));
   const extraSelected = selected.filter(s => !knownSet.has(s));
   const allRows = [
-    ...stockSerials.map(s => ({ serial_number: s.serial_number, status: s.status })),
-    ...extraSelected.map(s => ({ serial_number: s, status: 'selected' }))
+    ...stockSerials.map(s => ({ serial_number: s.serial_number, status: s.status, same_invoice: !!s.same_invoice })),
+    ...extraSelected.map(s => ({ serial_number: s, status: 'selected', same_invoice: false }))
   ];
 
-  const toggle = (sn, status) => {
+  const toggle = (sn, status, sameInvoice) => {
     const isSelected = selected.includes(sn);
-    // المحجوز لمستند تاني ميتفتحش
-    if (!isSelected && status === 'reserved') return;
+    // المحجوز لمستند تاني ميتفتحش — إلا لو محجوز لأمر شغل تابع لنفس الفاتورة
+    if (!isSelected && status === 'reserved' && !sameInvoice) return;
     if (isSelected) onChange(selected.filter(x => x !== sn));
     else onChange([...selected, sn]);
   };
@@ -86,7 +86,7 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
           🔢 السريالات المتاحة بالمخزن ({availableCount})
         </span>
         <span style={{ fontSize: '12px', fontWeight: 'bold', padding: '2px 10px', borderRadius: '10px', background: isComplete ? '#d1fae5' : '#fee2e2', color: isComplete ? '#065f46' : '#991b1b' }}>
-          مختار: {selected.length} / {required}
+          مختار: <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{selected.length} / {required}</span>
         </span>
       </div>
 
@@ -102,19 +102,20 @@ function SerialPicker({ itemId, warehouseId, count, value = [], onChange }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '160px', overflowY: 'auto', direction: 'ltr' }}>
           {allRows.map((row) => {
             const isSelected = selected.includes(row.serial_number);
-            const isReservedOther = row.status === 'reserved' && !isSelected;
+            const isReservedSameInvoice = row.status === 'reserved' && !isSelected && row.same_invoice;
+            const isReservedOther = row.status === 'reserved' && !isSelected && !row.same_invoice;
             return (
               <button
                 key={row.serial_number}
                 type="button"
                 disabled={isReservedOther}
-                onClick={() => toggle(row.serial_number, row.status)}
-                title={isReservedOther ? 'محجوز لمستند آخر' : (row.status === 'reserved' ? 'محجوز لهذا المستند' : 'متاح')}
+                onClick={() => toggle(row.serial_number, row.status, row.same_invoice)}
+                title={isReservedOther ? 'محجوز لمستند آخر' : (isReservedSameInvoice ? 'محجوز لأمر شغل تابع لنفس الفاتورة — اضغط للاختيار' : (row.status === 'reserved' ? 'محجوز لهذا المستند' : 'متاح'))}
                 style={{
                   padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace',
-                  border: isSelected ? '2px solid #059669' : '1px solid #d1d5db',
-                  background: isSelected ? '#d1fae5' : (isReservedOther ? '#f3f4f6' : 'white'),
-                  color: isSelected ? '#065f46' : (isReservedOther ? '#9ca3af' : '#374151'),
+                  border: isSelected ? '2px solid #059669' : (isReservedSameInvoice ? '1px dashed #2563eb' : '1px solid #d1d5db'),
+                  background: isSelected ? '#d1fae5' : (isReservedOther ? '#f3f4f6' : (isReservedSameInvoice ? '#eff6ff' : 'white')),
+                  color: isSelected ? '#065f46' : (isReservedOther ? '#9ca3af' : (isReservedSameInvoice ? '#1d4ed8' : '#374151')),
                   cursor: isReservedOther ? 'not-allowed' : 'pointer',
                   fontWeight: isSelected ? 'bold' : 'normal',
                   textDecoration: isReservedOther ? 'line-through' : 'none'

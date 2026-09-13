@@ -207,6 +207,16 @@ router.post('/', verifyToken, requireRole('sales', 'admin', 'manager'), async (r
           [woId, it.item_id, it.item_name, it.quantity, it.unit_price, it.warehouse_id,
            it.has_serial ? it.serial_numbers : null, it.notes]
         );
+        // ═══ نحجز السريالات المختارة فعليًا في item_serials — كانت الخطوة دي ناقصة هنا
+        // (موجودة في التعديل PUT بس مش في الإنشاء)، وده كان سبب عدم ظهور الحجز
+        // في إذن التسليم وشاشة الصرف من المخزن بعد كده ═══
+        if (it.has_serial && it.serial_numbers && it.serial_numbers.length > 0) {
+          await client.query(
+            `UPDATE item_serials SET status = 'reserved', updated_at = NOW()
+             WHERE item_id = $1 AND warehouse_id = $2 AND serial_number = ANY($3::text[])`,
+            [it.item_id, it.warehouse_id, it.serial_numbers]
+          );
+        }
       }
     }
 
@@ -363,8 +373,18 @@ router.delete('/:id', verifyToken, requireRole('admin'), async (req, res) => {
       return res.status(400).json({ message: 'لا يمكن حذف أمر الشغل المعتمد' });
     }
 
-    // حذف الأصناف
+    // حذف الأصناف + فك حجز السريالات المرتبطة بيها عشان ما تفضلش عالقة "محجوزة" للأبد
     if (await tableExists('work_order_items')) {
+      const oldItemsRes = await client.query('SELECT * FROM work_order_items WHERE work_order_id = $1', [req.params.id]);
+      for (const oldIt of oldItemsRes.rows) {
+        if (oldIt.serial_numbers && oldIt.serial_numbers.length > 0) {
+          await client.query(
+            `UPDATE item_serials SET status = 'available', updated_at = NOW()
+             WHERE item_id = $1 AND warehouse_id = $2 AND serial_number = ANY($3::text[]) AND status = 'reserved'`,
+            [oldIt.item_id, oldIt.warehouse_id, oldIt.serial_numbers]
+          );
+        }
+      }
       await client.query('DELETE FROM work_order_items WHERE work_order_id = $1', [req.params.id]);
     }
 
